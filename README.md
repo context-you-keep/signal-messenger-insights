@@ -1,140 +1,175 @@
 # Signal Archive Viewer
 
-> A local-only desktop app to browse, search, and export your Signal Desktop history from your own machine, using the keys already stored on disk.
+A secure, local-only tool for exploring your **Signal Desktop** message history.
+Decrypt, browse, search, and export your conversations — **without any data leaving your machine.**
+
+This tool never connects to Signal servers, never sends analytics, and never uploads files.
+Everything runs privately on **localhost** in a Docker container that you control.
 
 ---
 
-## ⚡ Overview
+## ⭐ Features
 
-Signal Local Archive Viewer (SLAV) is a privacy-respecting GUI that lets you:
-
-- Decrypt your **local** Signal Desktop database (using the key stored in `config.json`)
-- Browse and search conversations in a friendly interface
-- Export selected threads or messages to portable formats
-- Keep everything **offline** and **on your own machine**
-
-This project **does not** connect to Signal's servers, bypass end-to-end encryption, or give you access to accounts you don't already control. It just gives you a better interface to the data Signal Desktop already stores locally and encrypted.
-
----
-
-## 🎯 Goals
-
-- **Local-only**: No network calls required for core functionality.
-- **Read-only by default**: Avoid corrupting the live Signal Desktop database.
-- **Human-friendly UI**: Message list, conversation sidebar, full-text search.
-- **Export tooling**: Per-conversation export to Markdown, HTML, or JSON.
-- **Forensics / backup friendly**: Work over a copied profile or backup directory.
-- **Cross-platform**: Linux, macOS, Windows, matching Signal Desktop's reach.
+- 🔐 **Local-only, privacy-first** — all decryption happens on your machine
+- 📁 **Two ways to load your Signal data**
+  - Upload `config.json` + `db.sqlite` via the browser
+  - **OR** mount your Signal Desktop directory read-only
+- 💬 **Full conversation viewer**
+- 🔎 **Search across messages**
+- 📎 **View and export attachments**
+- 📤 **Export conversations** (Markdown, HTML, JSON — coming soon)
+- 🧠 **Future support for local or API-based LLM insights** (summaries, topic extraction, etc.)
 
 ---
 
-## 🚫 Non-Goals
+## 🚀 Quick Start (Upload Mode)
 
-- Running as a server or exposing data over the network.
-- Bypassing Signal's E2E encryption or accessing other users' messages.
-- Writing back into Signal's database or spoofing messages.
-- Cloud sync or remote backup (out of scope; explicitly local-only).
+This is the simplest way to run the viewer.
+No volume mounts — just start the container and upload your files.
 
----
+```bash
+docker run -p 127.0.0.1:8000:8000 ghcr.io/yourname/signal-archive-viewer:latest
+```
 
-## 🧱 High-Level Architecture
+Then open:
 
-**Components:**
+```
+http://localhost:8000
+```
 
-- **Backend Module**:
-  - Locates the Signal Desktop directory
-  - Reads `config.json` and extracts the encryption key
-  - Decrypts the `db.sqlite` file into an in-memory or temporary SQLite database
-  - Exposes a narrow API for queries (conversations, messages, attachments)
+You will be prompted to upload:
 
-- **Frontend GUI**:
-  - Provides a user-friendly interface for browsing conversations
-  - Handles search, filtering, and export operations
-  - Communicates with backend via IPC
+* Your `config.json`
+* Your encrypted `db.sqlite` (from the `sql/` directory in your Signal profile)
 
-**Data Flow**:
-1. On startup, SLAV detects the Signal Desktop profile path based on OS.
-2. User chooses:
-   - **Live mode**: work against the live profile (read-only), or
-   - **Offline mode**: point at a copied backup directory.
-3. Backend:
-   - Reads `config.json` → extracts base64-encoded encryption key.
-   - Uses this key to decrypt `db.sqlite` into a temporary decrypted DB.
-4. Frontend queries the backend for:
-   - Conversation list (IDs, names, last message, unread counts)
-   - Message history, with pagination
-   - Attachments metadata and files
-
-**Separation of Concerns**:
-- `core/crypto`: handles key parsing and database decryption.
-- `core/db`: wraps the decrypted SQLite DB and exposes typed queries.
-- `api/`: thin layer exposing a local API to the GUI.
-- `ui/`: all GUI components, no direct DB or crypto logic.
+The app decrypts the database **in-memory**, loads your conversations, and never writes data to disk unless you export intentionally.
 
 ---
 
-## 🔐 Security & Privacy Model
+## 🧠 Where to find your Signal files
 
-- **Local-only**:
-  - No external endpoints. Network access can be disabled at the framework level.
-- **No key exfiltration**:
-  - The Signal encryption key is never logged, never sent, never stored outside the app's runtime memory.
-- **Decrypted DB lifecycle**:
-  - Use one of:
-    - **In-memory SQLite** only, or
-    - Temporary on-disk file with `O_EXCL`, strict perms, and secure deletion on exit.
-- **Read-only semantics**:
-  - Open the original encrypted DB in read-only mode.
-  - Never modify `db.sqlite` or `config.json`.
-  - All writes (exports, user settings) go to a separate app data directory.
-- **Profile selection**:
-  - Make it visually obvious whether user is in **Live** vs **Backup** mode.
-- **Auditability**:
-  - Optional debug log with configurable verbosity, with PII-free logging defaults.
+### Linux
+
+```
+~/.config/Signal/
+```
+
+### macOS
+
+```
+~/Library/Application Support/Signal/
+```
+
+### Windows
+
+```
+%AppData%\Signal\
+```
+
+You will need:
+
+* `config.json`
+* `sql/db.sqlite`, `db.sqlite-wal`, `db.sqlite-shm` (upload only `db.sqlite` — other two are optional)
+
+---
+
+## 🔧 Advanced: Volume Mount Mode
+
+For power users who don't want to upload files manually.
+
+```bash
+docker run \
+  -p 127.0.0.1:8000:8000 \
+  -v "$HOME/.config/Signal:/signal:ro" \
+  ghcr.io/yourname/signal-archive-viewer:latest
+```
+
+Now open:
+
+```
+http://localhost:8000
+```
+
+The app will auto-detect:
+
+* `/signal/config.json`
+* `/signal/sql/db.sqlite`
+
+This mode is ideal for frequent use or automation.
 
 ---
 
-## 🧭 Key Features
+## 🕹 How to Use the App
 
-Planned feature set:
+1. Launch the viewer (upload or volume mode)
+2. Select or confirm your Signal data source
+3. Browse your conversations in the sidebar
+4. Click any conversation to view:
 
-### Core
-
-- Auto-detection of Signal Desktop profile location:
-  - Linux: `~/.config/Signal/`
-  - macOS: `~/Library/Application Support/Signal/`
-  - Windows: `%AppData%\Roaming\Signal\`
-- `config.json` parsing and key extraction.
-- Decryption of `db.sqlite` into a temporary readable DB.
-- Conversation list view:
-  - Name, phone/handle (hashed/partial by default), last message snippet, last activity time.
-- Message viewer:
-  - Bubble view with timestamps and direction (sent/received).
-  - Basic formatting for text, emojis, and quoted replies.
-- Attachments:
-  - Show attachment metadata and thumbnail where feasible.
-  - Option to export media to a user-selected directory.
-
-### Search & Export
-
-- Full-text search across:
-  - Messages, by keyword/phrase
-  - Sender, by contact handle
-- Filters:
-  - By conversation, date range, or direction (sent/received).
-- Export options:
-  - **Conversation → Markdown** (good for second brain tools)
-  - **Conversation → HTML** (printable archive)
-  - **Conversation → JSON** (for further analysis or tooling)
-- Optional "Export all conversations" with rate limiting and progress feedback.
-
-### Power-User / Forensics Mode
-
-- Ability to point SLAV at:
-  - A copied `Signal` directory (offline analysis of a disk image)
-  - A custom path, for unconventional setups or multiple profiles.
-- Schema explorer (developer mode):
-  - Inspect raw tables and run ad-hoc SQL queries on the decrypted DB.
-  - Handy for advanced analysis and debugging.
+   * Messages (with pagination)
+   * Timestamps
+   * Attachments
+5. Use the search bar to find messages by keyword
+6. Export conversations as needed (HTML/Markdown/JSON)
 
 ---
+
+## 🔒 Privacy & Security
+
+Your privacy is the point of this project.
+
+* The app runs entirely on `localhost`
+* No internet access is required
+* No telemetry, analytics, or tracking
+* Your Signal files never leave your machine
+* Decrypted SQLite DB is kept **in-memory** or in a secure temporary location
+* Mounted directories are read-only
+
+You control the container.
+You control your data.
+
+---
+
+## 🛠 Development (Optional)
+
+If you want to build the image locally:
+
+```bash
+git clone https://github.com/yourname/signal-archive-viewer.git
+cd signal-archive-viewer
+docker build -t sav .
+docker run -p 127.0.0.1:8000:8000 sav
+```
+
+---
+
+## 🗺 Roadmap
+
+* Conversation exports (Markdown / HTML / JSON)
+* Attachment extraction tools
+* LLM-assisted insights:
+
+  * Conversation summaries
+  * Topic clustering
+  * Highlighting significant messages
+  * Relationship mappings
+* Optional offline-only mode using local LLMs (Ollama)
+
+---
+
+## ⚖️ Disclaimer
+
+This tool is designed for **your own Signal Desktop data**.
+Do not use it on systems or data you do not own or have explicit permission to analyze.
+
+---
+
+## ❤️ Contributing
+
+Bug reports, feature requests, and PRs welcome.
+
+---
+
+## 📄 License
+
+MIT
