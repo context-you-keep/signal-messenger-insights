@@ -14,6 +14,7 @@ interface Conversation {
   timestamp: string
   unread?: number
   isGroup?: boolean
+  messageCount?: number
 }
 
 interface ConversationListProps {
@@ -80,6 +81,11 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                     </span>
                   )}
                 </div>
+                {conversation.messageCount !== undefined && conversation.messageCount > 0 && (
+                  <div className="mt-1 text-xs text-[var(--signal-text-tertiary)]">
+                    {conversation.messageCount.toLocaleString()} messages
+                  </div>
+                )}
               </div>
             </button>
           ))}

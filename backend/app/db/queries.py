@@ -45,11 +45,14 @@ class SignalDatabase:
         except Exception as e:
             logger.error(f"Failed to introspect schema: {e}")
 
-        # Simplified query that just gets basic conversation data
+        # Query with actual message count from messages table
+        # Use a subquery instead of LEFT JOIN to ensure accurate counts
         query = """
-        SELECT *
-        FROM conversations
-        ORDER BY active_at DESC
+        SELECT
+            c.*,
+            (SELECT COUNT(*) FROM messages m WHERE m.conversationId = c.id) as actual_message_count
+        FROM conversations c
+        ORDER BY c.active_at DESC
         LIMIT ?
         """
 
@@ -63,19 +66,25 @@ class SignalDatabase:
                     logger.info(f"First conversation row keys: {list(row.keys())}")
                     logger.info(f"First conversation sample: {dict(list(row.items())[:5])}")
 
-                # Parse JSON blob to extract message count and last message
-                message_count = 0
+                # Parse JSON blob to extract unread count and last message
                 unread_count = 0
                 last_message = None
                 if row.get("json"):
                     try:
                         import json
                         json_data = json.loads(row.get("json"))
-                        message_count = json_data.get("messageCount", 0)
                         unread_count = json_data.get("unreadCount", 0)
                         last_message = json_data.get("lastMessage")
                     except json.JSONDecodeError:
                         logger.warning(f"Failed to parse JSON for conversation {row.get('id')}")
+
+                # Use actual count from messages table
+                message_count = row.get("actual_message_count", 0)
+
+                # Debug: log the count for this conversation
+                conv_id = row.get("id", "unknown")
+                conv_name = row.get("name") or row.get("profileName") or "Unknown"
+                logger.info(f"Conversation {conv_name} ({conv_id}): message_count = {message_count}")
 
                 conversations.append(
                     ConversationSummary(

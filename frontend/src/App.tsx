@@ -52,6 +52,7 @@ function transformConversation(conv: ConversationSummary) {
     avatar: undefined, // We don't have avatars in backend
     unread: conv.unread_count > 0 ? conv.unread_count : undefined,
     isGroup: conv.type === 'group',
+    messageCount: conv.message_count,
   }
 }
 
@@ -83,7 +84,7 @@ function AppContent() {
   // Fetch messages for selected conversation
   const { data: messagesData, isLoading: messagesLoading, error: messagesError } = useQuery({
     queryKey: ['messages', selectedConversationId],
-    queryFn: () => apiClient.getMessages(selectedConversationId!, 1, 1000),
+    queryFn: () => apiClient.getMessages(selectedConversationId!, 1, 500),
     enabled: !!selectedConversationId,
   })
 
@@ -174,6 +175,7 @@ function AppContent() {
             name: selectedConversation.name || 'Unknown',
           }}
           messages={transformedMessages}
+          totalMessages={messagesData?.total || transformedMessages.length}
         />
       )}
     </div>
