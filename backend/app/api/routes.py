@@ -157,7 +157,7 @@ async def get_conversations(limit: int = 100):
 
 
 @router.get("/api/conversations/{conversation_id}/messages", response_model=MessagesResponse)
-async def get_messages(conversation_id: str, page: int = 1, page_size: int = 50):
+async def get_messages(conversation_id: str, page: int = 1, page_size: int = 100):
     """Get messages for a specific conversation."""
     if not _database:
         raise HTTPException(status_code=503, detail="Database not initialized")
@@ -165,8 +165,8 @@ async def get_messages(conversation_id: str, page: int = 1, page_size: int = 50)
     if page < 1:
         raise HTTPException(status_code=400, detail="Page must be >= 1")
 
-    if page_size < 1 or page_size > 200:
-        raise HTTPException(status_code=400, detail="Page size must be between 1 and 200")
+    if page_size < 1 or page_size > 500:
+        raise HTTPException(status_code=400, detail="Page size must be between 1 and 500")
 
     return _database.get_messages(conversation_id, page=page, page_size=page_size)
 

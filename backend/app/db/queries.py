@@ -18,9 +18,13 @@ class SignalDatabase:
 
         Args:
             conn: SQLite connection to the decrypted Signal database
+                 (can be sqlite3.Connection or pysqlcipher3.Connection)
         """
         self.conn = conn
-        self.conn.row_factory = sqlite3.Row  # Enable column access by name
+        # Use dict_factory instead of sqlite3.Row for pysqlcipher3 compatibility
+        def dict_factory(cursor, row):
+            return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+        self.conn.row_factory = dict_factory
 
     def get_conversations(self, limit: int = 100) -> list[ConversationSummary]:
         """
@@ -32,19 +36,20 @@ class SignalDatabase:
         Returns:
             List of conversation summaries
         """
+        # First, introspect the schema to see what we have
+        logger.info("Introspecting conversations table schema...")
+        try:
+            cursor = self.conn.execute("PRAGMA table_info(conversations)")
+            columns = [row[1] for row in cursor.fetchall()]
+            logger.info(f"Conversations columns: {columns}")
+        except Exception as e:
+            logger.error(f"Failed to introspect schema: {e}")
+
+        # Simplified query that just gets basic conversation data
         query = """
-        SELECT
-            c.id,
-            c.name,
-            c.type,
-            c.lastMessage,
-            c.timestamp as last_message_timestamp,
-            COUNT(m.id) as message_count,
-            SUM(CASE WHEN m.readStatus = 0 THEN 1 ELSE 0 END) as unread_count
-        FROM conversations c
-        LEFT JOIN messages m ON m.conversationId = c.id
-        GROUP BY c.id
-        ORDER BY c.timestamp DESC
+        SELECT *
+        FROM conversations
+        ORDER BY active_at DESC
         LIMIT ?
         """
 
@@ -53,19 +58,38 @@ class SignalDatabase:
             conversations = []
 
             for row in cursor:
+                # Log first row to see what data we have
+                if not conversations:
+                    logger.info(f"First conversation row keys: {list(row.keys())}")
+                    logger.info(f"First conversation sample: {dict(list(row.items())[:5])}")
+
+                # Parse JSON blob to extract message count and last message
+                message_count = 0
+                unread_count = 0
+                last_message = None
+                if row.get("json"):
+                    try:
+                        import json
+                        json_data = json.loads(row.get("json"))
+                        message_count = json_data.get("messageCount", 0)
+                        unread_count = json_data.get("unreadCount", 0)
+                        last_message = json_data.get("lastMessage")
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON for conversation {row.get('id')}")
+
                 conversations.append(
                     ConversationSummary(
-                        id=row["id"],
-                        name=row["name"],
-                        type=row["type"] or "private",
-                        last_message=row["lastMessage"],
+                        id=row.get("id", "unknown"),
+                        name=row.get("name") or row.get("profileName") or row.get("e164") or "Unknown",
+                        type=row.get("type", "private"),
+                        last_message=last_message,
                         last_message_timestamp=(
-                            datetime.fromtimestamp(row["last_message_timestamp"] / 1000)
-                            if row["last_message_timestamp"]
+                            datetime.fromtimestamp(row.get("active_at", 0) / 1000)
+                            if row.get("active_at")
                             else None
                         ),
-                        message_count=row["message_count"] or 0,
-                        unread_count=row["unread_count"] or 0,
+                        message_count=message_count,
+                        unread_count=unread_count,
                     )
                 )
 
@@ -100,20 +124,22 @@ class SignalDatabase:
         cursor = self.conn.execute(count_query, (conversation_id,))
         total = cursor.fetchone()["total"]
 
-        # Get messages for this page
+        # Introspect messages table schema
+        logger.info("Introspecting messages table schema...")
+        try:
+            cursor = self.conn.execute("PRAGMA table_info(messages)")
+            columns = [row[1] for row in cursor.fetchall()]
+            logger.info(f"Messages table columns: {columns}")
+        except Exception as e:
+            logger.error(f"Failed to introspect messages schema: {e}")
+
+        # Get messages for this page - use SELECT * to avoid missing column errors
+        # ORDER BY DESC to show newest messages first
         query = """
-        SELECT
-            id,
-            conversationId as conversation_id,
-            sourceServiceId as sender_id,
-            body,
-            sent_at as timestamp,
-            type,
-            hasAttachments as has_attachments,
-            quote
+        SELECT *
         FROM messages
         WHERE conversationId = ?
-        ORDER BY sent_at ASC
+        ORDER BY sent_at DESC
         LIMIT ? OFFSET ?
         """
 
@@ -122,16 +148,21 @@ class SignalDatabase:
             messages = []
 
             for row in cursor:
+                # Log first row to see what we have
+                if not messages:
+                    logger.info(f"First message row keys: {list(row.keys())}")
+                    logger.info(f"First message sample: {dict(list(row.items())[:10])}")
+
                 messages.append(
                     Message(
-                        id=row["id"],
-                        conversation_id=row["conversation_id"],
-                        sender_id=row["sender_id"],
-                        body=row["body"],
-                        timestamp=datetime.fromtimestamp(row["timestamp"] / 1000),
-                        sent=(row["type"] == "outgoing"),
-                        has_attachments=bool(row["has_attachments"]),
-                        quote_id=row["quote"],
+                        id=row.get("id"),
+                        conversation_id=row.get("conversationId"),
+                        sender_id=row.get("sourceServiceId") or row.get("source"),
+                        body=row.get("body"),
+                        timestamp=datetime.fromtimestamp(row.get("sent_at", 0) / 1000) if row.get("sent_at") else datetime.now(),
+                        sent=(row.get("type") == "outgoing"),
+                        has_attachments=bool(row.get("hasAttachments", 0)),
+                        quote_id=row.get("quote"),  # May be None if column doesn't exist
                     )
                 )
 
@@ -174,15 +205,7 @@ class SignalDatabase:
             List of matching messages
         """
         sql = """
-        SELECT
-            id,
-            conversationId as conversation_id,
-            sourceServiceId as sender_id,
-            body,
-            sent_at as timestamp,
-            type,
-            hasAttachments as has_attachments,
-            quote
+        SELECT *
         FROM messages
         WHERE body LIKE ?
         """
@@ -203,14 +226,14 @@ class SignalDatabase:
             for row in cursor:
                 messages.append(
                     Message(
-                        id=row["id"],
-                        conversation_id=row["conversation_id"],
-                        sender_id=row["sender_id"],
-                        body=row["body"],
-                        timestamp=datetime.fromtimestamp(row["timestamp"] / 1000),
-                        sent=(row["type"] == "outgoing"),
-                        has_attachments=bool(row["has_attachments"]),
-                        quote_id=row["quote"],
+                        id=row.get("id"),
+                        conversation_id=row.get("conversationId"),
+                        sender_id=row.get("sourceServiceId") or row.get("source"),
+                        body=row.get("body"),
+                        timestamp=datetime.fromtimestamp(row.get("sent_at", 0) / 1000) if row.get("sent_at") else datetime.now(),
+                        sent=(row.get("type") == "outgoing"),
+                        has_attachments=bool(row.get("hasAttachments", 0)),
+                        quote_id=row.get("quote"),
                     )
                 )
 

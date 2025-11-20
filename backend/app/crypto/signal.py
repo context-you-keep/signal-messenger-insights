@@ -67,6 +67,25 @@ class SignalDecryptor:
             # Try old format first (plain hex key)
             key_hex = config.get("key")
             if key_hex:
+                # Clean and validate the key
+                key_hex = key_hex.strip()
+
+                # Validate it's hex
+                if not all(c in '0123456789abcdefABCDEF' for c in key_hex):
+                    raise SignalDatabaseError(
+                        f"Invalid key format: key must be a hexadecimal string (0-9, a-f). "
+                        f"Found invalid character at position 0. "
+                        f"Make sure you copied only the key value without quotes or extra whitespace. "
+                        f"Key should be 64 hex characters long. Current length: {len(key_hex)}"
+                    )
+
+                # Should be 64 characters (32 bytes)
+                if len(key_hex) != 64:
+                    raise SignalDatabaseError(
+                        f"Invalid key length: expected 64 hex characters, got {len(key_hex)}. "
+                        f"Make sure you copied the complete key."
+                    )
+
                 # The key is a hex string - convert to bytes
                 self.encryption_key = bytes.fromhex(key_hex)
                 logger.info("Successfully extracted encryption key from config.json (old format)")
@@ -172,7 +191,19 @@ class SignalDecryptor:
         except subprocess.CalledProcessError as e:
             raise SignalDatabaseError(
                 f"Failed to get password from {backend}: {e.stderr or e}. "
-                f"Make sure Signal Desktop is installed and you're logged in as the same user."
+                "\n\n"
+                "❌ Docker containers cannot access your system keyring.\n"
+                "Signal Desktop encrypts the database key using your system keyring (GNOME Keyring, KWallet, etc.),\n"
+                "which is isolated from Docker containers for security.\n"
+                "\n"
+                "✅ SOLUTION:\n"
+                "1. On your Signal Desktop system, run: ./extract-signal-key.sh\n"
+                "2. Install dependencies if needed: pip install pycryptodome\n"
+                "3. Create a config.json with the extracted key:\n"
+                '   {"key": "your-extracted-key-here"}\n'
+                "4. Upload the new config.json with your db.sqlite\n"
+                "\n"
+                "📖 See QUICK-START.md for detailed instructions."
             )
         except ValueError as e:
             raise SignalDatabaseError(f"Failed to decrypt key: {e}")
@@ -216,31 +247,77 @@ class SignalDecryptor:
             cursor.fetchone()
 
             if in_memory:
-                # Copy to in-memory database
-                logger.info("Decrypting database to in-memory SQLite")
-                memory_conn = sqlite3.connect(":memory:")
-                encrypted_conn.backup(memory_conn)
-                encrypted_conn.close()
-                return memory_conn
+                # pysqlcipher3.iterdump() fails when trying to introspect FTS tables
+                # with custom tokenizers. Instead, we'll work directly with the
+                # encrypted database without copying it.
+                logger.info("Using encrypted database directly (no copy needed)")
+                logger.info("Note: FTS search will not work, but message browsing will")
+
+                # Just return the encrypted connection - it's already decrypted
+                # and we can query it directly
+                return encrypted_conn
             else:
                 # Create a temporary file for the decrypted database
                 logger.info("Decrypting database to temporary file")
                 self._temp_dir = tempfile.TemporaryDirectory(prefix="signal_archive_")
                 temp_db_path = Path(self._temp_dir.name) / "decrypted.db"
 
-                # Create unencrypted copy
+                # Use SQL export/import since backup() isn't supported
+                logger.info("Using SQL export/import for decryption")
+
+                # Create the temp database and import everything
                 temp_conn = sqlite3.connect(temp_db_path)
-                encrypted_conn.backup(temp_conn)
+
+                # Export from encrypted DB
+                line_count = 0
+                replaced_count = 0
+                for line in encrypted_conn.iterdump():
+                    line_count += 1
+
+                    if line.startswith('BEGIN TRANSACTION') or line.startswith('COMMIT'):
+                        continue
+
+                    # Replace Signal's custom tokenizer with standard unicode61
+                    if 'signal_tokenizer' in line:
+                        replaced_count += 1
+                        logger.info(f"Line {line_count}: Replacing signal_tokenizer with unicode61")
+                        logger.info(f"Original SQL: {line[:200]}")
+                        # Handle various spacing patterns around the = sign
+                        import re
+                        line = re.sub(r"tokenize\s*=\s*['\"]signal_tokenizer['\"]",
+                                     "tokenize='unicode61'",
+                                     line,
+                                     flags=re.IGNORECASE)
+                        logger.info(f"Modified SQL: {line[:200]}")
+
+                    try:
+                        temp_conn.execute(line)
+                    except sqlite3.OperationalError as e:
+                        logger.error(f"Line {line_count}: SQL execution failed: {e}")
+                        logger.error(f"Failed SQL: {line[:200]}")
+                        if 'tokenizer' in str(e).lower():
+                            logger.error("TOKENIZER ERROR DETECTED - this line should have been replaced!")
+                            logger.error(f"Full line: {line}")
+
+                logger.info(f"Processed {line_count} SQL lines, replaced {replaced_count} tokenizer references")
+
+                temp_conn.commit()
                 encrypted_conn.close()
 
                 self.decrypted_db_path = temp_db_path
                 return temp_conn
 
         except sqlite3.DatabaseError as e:
+            logger.error(f"DatabaseError during decryption: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise SignalDatabaseError(
                 f"Failed to decrypt database. Ensure the database and key are correct: {e}"
             )
         except Exception as e:
+            logger.error(f"Unexpected error during decryption: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise SignalDatabaseError(f"Unexpected error during decryption: {e}")
 
     def cleanup(self):
