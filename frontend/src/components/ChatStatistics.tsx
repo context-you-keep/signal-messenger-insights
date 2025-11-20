@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { MessageSquare, Sparkles, ChevronRight } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 
 interface Conversation {
   id: string
@@ -20,6 +21,7 @@ interface ChatStatisticsProps {
 }
 
 export function ChatStatistics({ conversation, messages, totalMessages: totalMessagesProp }: ChatStatisticsProps) {
+  const navigate = useNavigate()
   const totalMessages = totalMessagesProp || messages.length
   const sentMessages = messages.filter((m) => m.isSent).length
   const receivedMessages = messages.filter((m) => !m.isSent).length
@@ -34,7 +36,10 @@ export function ChatStatistics({ conversation, messages, totalMessages: totalMes
 
   return (
     <div className="flex w-80 flex-col border-l border-[var(--signal-divider)] bg-[var(--signal-bg-primary)]">
-      <div className="border-b border-[var(--signal-divider)] px-5 py-4 hover:bg-[var(--signal-bg-secondary)] transition-colors cursor-pointer group">
+      <div
+        onClick={() => navigate(`/stats/${conversation.id}`)}
+        className="border-b border-[var(--signal-divider)] px-5 py-4 hover:bg-[var(--signal-bg-secondary)] transition-colors cursor-pointer group"
+      >
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-[var(--signal-text-primary)]">Statistics</h2>
