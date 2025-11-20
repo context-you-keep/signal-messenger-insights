@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  signal-archive-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: signal-archive-viewer
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Optional: Mount Signal directory for volume mode
+    # volumes:
+    #   - ~/.config/Signal:/signal:ro  # Linux
+    #   - ~/Library/Application Support/Signal:/signal:ro  # macOS (uncomment for macOS)
+    #   - %APPDATA%\Signal:/signal:ro  # Windows (uncomment for Windows)
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    # Security: Run as non-root user
+    user: "1000:1000"
+    # Limit resources
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
