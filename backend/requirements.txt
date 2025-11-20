@@ -6,4 +6,9 @@ pydantic-settings>=2.1.0
 python-multipart>=0.0.6
 aiofiles>=23.2.1
 cryptography>=42.0.0
-sqlcipher3>=0.5.0
+# Use pysqlcipher3 for Signal Desktop SQLCipher 4.x database decryption
+# This provides SQLCipher-enabled sqlite3 bindings
+pysqlcipher3>=1.2.0
+# Use pycryptodome for decrypting encryptedKey from system keyring
+# Required for Chromium's AES-CBC encryption scheme
+pycryptodome>=3.23.0

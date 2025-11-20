@@ -11,7 +11,10 @@ dependencies = [
     "python-multipart>=0.0.6",
     "aiofiles>=23.2.1",
     "cryptography>=42.0.0",
-    "sqlcipher3>=0.5.0",
+    # Use pysqlcipher3 for Signal Desktop SQLCipher 4.x database decryption
+    "pysqlcipher3>=1.2.0",
+    # Use pycryptodome for decrypting encryptedKey from system keyring
+    "pycryptodome>=3.23.0",
 ]
 
 [project.optional-dependencies]

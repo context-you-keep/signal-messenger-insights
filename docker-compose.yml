@@ -1,13 +1,12 @@
-version: '3.8'
-
 services:
   signal-archive-viewer:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: signal-archive-viewer
-    ports:
-      - "127.0.0.1:8000:8000"
+    network_mode: host
+    # ports:  # Not needed with host network mode
+    #   - "0.0.0.0:8000:8000"
     # Optional: Mount Signal directory for volume mode
     # volumes:
     #   - ~/.config/Signal:/signal:ro  # Linux
@@ -16,8 +15,14 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
-    # Security: Run as non-root user
-    user: "1000:1000"
+    # Security: Run as non-root user (disabled - conflicts with LXC sysctl access)
+    # user: "1000:1000"
+    # Disable security profiles to allow sysctl access (required in LXC/Proxmox environments)
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
     # Limit resources
     deploy:
       resources:

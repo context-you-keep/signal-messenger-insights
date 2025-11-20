@@ -11,7 +11,7 @@ RUN npm install -g pnpm
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # Copy frontend source
 COPY frontend/ ./
@@ -24,12 +24,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies for SQLCipher
+# Install system dependencies for SQLCipher and keychain access
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libsqlcipher-dev \
-    libsqlcipher0 \
+    libsecret-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements
@@ -54,5 +54,8 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# Set working directory to backend for proper imports
+WORKDIR /app/backend
+
 # Run the application
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

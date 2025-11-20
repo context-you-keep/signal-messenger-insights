@@ -3,10 +3,34 @@ import base64
 import json
 import logging
 import os
-import sqlite3
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
+
+# Use pysqlcipher3 for SQLCipher-encrypted database support
+# Standard sqlite3 module does NOT support SQLCipher encryption
+try:
+    from pysqlcipher3 import dbapi2 as sqlite3
+except ImportError:
+    # Fallback to standard sqlite3 (will fail on encrypted databases)
+    import sqlite3
+    logging.warning(
+        "pysqlcipher3 not available - encrypted database decryption will fail. "
+        "Install with: pip install pysqlcipher3"
+    )
+
+# Import cryptography modules for decrypting encryptedKey from keyring
+try:
+    from Crypto.Cipher import AES
+    from Crypto.Hash import SHA1
+    from Crypto.Protocol.KDF import PBKDF2
+    from Crypto.Util.Padding import unpad
+except ImportError:
+    logging.warning(
+        "pycryptodome not available - keyring decryption will fail. "
+        "Install with: pip install pycryptodome"
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +52,7 @@ class SignalDecryptor:
     def load_config(self, config_path: Path) -> None:
         """
         Load and parse Signal's config.json to extract the encryption key.
+        Supports both old format (plain 'key') and new format ('encryptedKey' with keychain).
 
         Args:
             config_path: Path to Signal's config.json file
@@ -39,19 +64,120 @@ class SignalDecryptor:
             with open(config_path, "r") as f:
                 config = json.load(f)
 
-            # Signal stores the key as base64-encoded string
-            key_b64 = config.get("key")
-            if not key_b64:
-                raise SignalDatabaseError("No 'key' field found in config.json")
+            # Try old format first (plain hex key)
+            key_hex = config.get("key")
+            if key_hex:
+                # The key is a hex string - convert to bytes
+                self.encryption_key = bytes.fromhex(key_hex)
+                logger.info("Successfully extracted encryption key from config.json (old format)")
+                return
 
-            # Decode the base64 key
-            self.encryption_key = base64.b64decode(key_b64)
-            logger.info("Successfully extracted encryption key from config.json")
+            # Try new format (encryptedKey + system keychain)
+            encrypted_key = config.get("encryptedKey")
+            safe_storage_backend = config.get("safeStorageBackend")
+
+            if encrypted_key and safe_storage_backend:
+                logger.info(f"Detected new config format with {safe_storage_backend}")
+                self.encryption_key = self._decrypt_encrypted_key(
+                    encrypted_key, safe_storage_backend
+                )
+                logger.info("Successfully decrypted encryption key from keyring")
+                return
+
+            # Neither format found
+            raise SignalDatabaseError(
+                "No 'key' or 'encryptedKey' field found in config.json. "
+                "This may not be a valid Signal Desktop config file."
+            )
 
         except json.JSONDecodeError as e:
             raise SignalDatabaseError(f"Invalid JSON in config.json: {e}")
+        except SignalDatabaseError:
+            raise
         except Exception as e:
             raise SignalDatabaseError(f"Failed to load config: {e}")
+
+    def _decrypt_encrypted_key(self, encrypted_key_hex: str, backend: str) -> bytes:
+        """
+        Decrypt the encryptedKey from config.json using the password from system keyring.
+
+        This implements Chromium's key encryption scheme used by Signal Desktop:
+        1. Get password from keyring (base64 string)
+        2. Derive AES key using PBKDF2-HMAC-SHA1 with salt 'saltysalt'
+        3. Decrypt encryptedKey using AES-CBC
+        4. Result is an ASCII hex string representing the database key
+
+        Args:
+            encrypted_key_hex: The hex-encoded encrypted key from config.json (with v11 prefix)
+            backend: The safe storage backend (gnome_libsecret, kwallet, etc.)
+
+        Returns:
+            The decrypted database encryption key as bytes
+
+        Raises:
+            SignalDatabaseError: If decryption fails
+        """
+        try:
+            # Step 1: Get password from system keyring
+            if backend == "gnome_libsecret":
+                result = subprocess.run(
+                    ["secret-tool", "lookup", "application", "Signal"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                password = result.stdout.strip()
+                if not password:
+                    raise SignalDatabaseError("Empty password returned from keyring")
+            else:
+                raise SignalDatabaseError(
+                    f"Unsupported safe storage backend: {backend}. "
+                    f"Currently only 'gnome_libsecret' is supported."
+                )
+
+            # Step 2: Derive AES key using Chromium's parameters
+            # CRITICAL: Use password AS STRING (not base64-decoded) and SHA1 hash
+            salt = b'saltysalt'
+            iterations = 1
+            aes_key = PBKDF2(
+                password,  # Use password string directly!
+                salt=salt,
+                dkLen=16,  # 128 bits
+                count=iterations,
+                hmac_hash_module=SHA1  # MUST use SHA1!
+            )
+
+            # Step 3: Decrypt the encrypted key
+            encrypted_key_bytes = bytes.fromhex(encrypted_key_hex)
+
+            # Skip the v11 prefix (3 bytes)
+            if not encrypted_key_bytes.startswith(b'v11'):
+                raise SignalDatabaseError("Encrypted key missing v11 prefix")
+            encrypted_data = encrypted_key_bytes[3:]
+
+            # Decrypt using AES-CBC
+            iv = b' ' * 16  # 16 spaces
+            cipher = AES.new(aes_key, AES.MODE_CBC, iv)
+            decrypted = cipher.decrypt(encrypted_data)
+
+            # Remove PKCS7 padding and decode as ASCII hex string
+            database_key_hex = unpad(decrypted, block_size=16).decode('ascii')
+
+            # Convert hex string to bytes
+            database_key = bytes.fromhex(database_key_hex)
+            logger.info(f"Successfully decrypted database key ({len(database_key)} bytes)")
+
+            return database_key
+
+        except subprocess.CalledProcessError as e:
+            raise SignalDatabaseError(
+                f"Failed to get password from {backend}: {e.stderr or e}. "
+                f"Make sure Signal Desktop is installed and you're logged in as the same user."
+            )
+        except ValueError as e:
+            raise SignalDatabaseError(f"Failed to decrypt key: {e}")
+        except Exception as e:
+            raise SignalDatabaseError(f"Unexpected error during key decryption: {e}")
 
     def decrypt_database(self, encrypted_db_path: Path, in_memory: bool = True) -> sqlite3.Connection:
         """
@@ -141,11 +267,14 @@ def extract_key_from_config(config_content: str) -> bytes:
     """
     try:
         config = json.loads(config_content)
-        key_b64 = config.get("key")
-        if not key_b64:
+        key_hex = config.get("key")
+        if not key_hex:
             raise SignalDatabaseError("No 'key' field found in config.json")
-        return base64.b64decode(key_b64)
+        # Key is a hex string, convert to bytes
+        return bytes.fromhex(key_hex)
     except json.JSONDecodeError as e:
         raise SignalDatabaseError(f"Invalid JSON: {e}")
+    except ValueError as e:
+        raise SignalDatabaseError(f"Invalid key format (expected hex string): {e}")
     except Exception as e:
         raise SignalDatabaseError(f"Failed to extract key: {e}")
