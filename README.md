@@ -25,17 +25,21 @@ Everything runs privately on **localhost** in a Docker container that you contro
 ## 🚀 Quick Start (Upload Mode)
 
 This is the simplest way to run the viewer.
-No volume mounts — just start the container and upload your files.
+No volume mounts — just start the containers and upload your files.
 
 ```bash
-docker run -p 127.0.0.1:8000:8000 ghcr.io/yourname/signal-archive-viewer:latest
+docker compose up
 ```
 
 Then open:
 
 ```
-http://localhost:8000
+http://localhost:3000
 ```
+
+The viewer consists of two services:
+- **Frontend** (Next.js) on port 3000 - User interface
+- **Backend** (FastAPI) on port 8000 - API and database decryption
 
 You will be prompted to upload:
 
@@ -103,19 +107,25 @@ Upload this simplified `config.json` along with your `db.sqlite`.
 
 ## 🔧 Advanced: Volume Mount Mode
 
-For power users who don't want to upload files manually.
+For power users who don't want to upload files manually, you can mount your Signal directory.
+
+Edit `docker-compose.yml` and uncomment the volumes section for your OS:
+
+```yaml
+volumes:
+  - ~/.config/Signal:/signal:ro  # Linux
+```
+
+Then run:
 
 ```bash
-docker run \
-  -p 127.0.0.1:8000:8000 \
-  -v "$HOME/.config/Signal:/signal:ro" \
-  ghcr.io/yourname/signal-archive-viewer:latest
+docker compose up
 ```
 
 Now open:
 
 ```
-http://localhost:8000
+http://localhost:3000
 ```
 
 The app will auto-detect:
@@ -158,15 +168,33 @@ You control your data.
 
 ---
 
-## 🛠 Development (Optional)
+## 🛠 Development
 
-If you want to build the image locally:
+### Local Development (without Docker)
+
+**Backend:**
+```bash
+cd backend
+pip install -e .
+uvicorn app.main:app --reload --port 8000
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000`
+
+### Building with Docker
 
 ```bash
 git clone https://github.com/yourname/signal-archive-viewer.git
 cd signal-archive-viewer
-docker build -t sav .
-docker run -p 127.0.0.1:8000:8000 sav
+docker compose build
+docker compose up
 ```
 
 ---
