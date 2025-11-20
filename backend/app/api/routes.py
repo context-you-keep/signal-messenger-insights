@@ -40,6 +40,62 @@ async def get_status():
     )
 
 
+@router.post("/api/logout")
+async def logout():
+    """Reset application state - clear loaded database and config."""
+    global _database, _decryptor, _mode
+
+    # Close database connection if open
+    if _database:
+        try:
+            _database.close()
+        except Exception as e:
+            logger.warning(f"Error closing database during logout: {e}")
+
+    # Reset global state
+    _database = None
+    _decryptor = None
+    _mode = None
+
+    logger.info("Application state reset successfully")
+    return {"message": "Logged out successfully", "initialized": False}
+
+
+@router.get("/api/default-signal-path")
+async def get_default_signal_path():
+    """Get the default Signal directory path for the current OS."""
+    import platform
+    from pathlib import Path
+
+    system = platform.system()
+    home = Path.home()
+
+    if system == "Linux":
+        default_path = home / ".config" / "Signal"
+        display_path = "$HOME/.config/Signal"
+    elif system == "Darwin":  # macOS
+        default_path = home / "Library" / "Application Support" / "Signal"
+        display_path = "$HOME/Library/Application Support/Signal"
+    elif system == "Windows":
+        # Use APPDATA environment variable
+        import os
+        appdata = os.getenv("APPDATA")
+        if appdata:
+            default_path = Path(appdata) / "Signal"
+        else:
+            default_path = home / "AppData" / "Roaming" / "Signal"
+        display_path = "%APPDATA%\\Signal"
+    else:
+        # Unknown OS, return None
+        return {"path": None, "os": system}
+
+    return {
+        "path": display_path,
+        "os": system,
+        "exists": default_path.exists()
+    }
+
+
 @router.post("/api/upload", response_model=UploadResponse)
 async def upload_files(
     config: UploadFile = File(..., description="Signal config.json file"),

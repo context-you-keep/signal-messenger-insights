@@ -22,6 +22,18 @@ export const apiClient = {
     return data
   },
 
+  // Logout
+  logout: async (): Promise<{ message: string; initialized: boolean }> => {
+    const { data } = await api.post('/logout')
+    return data
+  },
+
+  // Get default Signal path for the OS
+  getDefaultSignalPath: async (): Promise<{ path: string | null; os: string; exists: boolean }> => {
+    const { data } = await api.get('/default-signal-path')
+    return data
+  },
+
   // Upload files
   uploadFiles: async (config: File, database: File): Promise<UploadResponse> => {
     const formData = new FormData()

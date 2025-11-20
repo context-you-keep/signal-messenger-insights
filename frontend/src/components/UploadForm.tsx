@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { apiClient } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Upload, FileJson, Database, Info, Loader2 } from 'lucide-react'
+import { Upload, FileJson, Database, Info, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
 interface UploadFormProps {
   onUploadSuccess: () => void
@@ -22,8 +22,16 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [defaultPath, setDefaultPath] = useState<{ path: string | null; os: string; exists: boolean } | null>(null)
   const configInputRef = useRef<HTMLInputElement>(null)
   const dbInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch default Signal path on mount
+  useEffect(() => {
+    apiClient.getDefaultSignalPath()
+      .then(setDefaultPath)
+      .catch(err => console.error('Failed to get default Signal path:', err))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,9 +74,26 @@ export function UploadForm({ onUploadSuccess }: UploadFormProps) {
         {/* Info Banner */}
         <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-lg">
           <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-          <div className="text-sm text-muted-foreground">
-            <p className="font-medium text-foreground mb-1">Quick Setup</p>
-            <p>Upload your Signal Desktop files below. The browser file picker will attempt to navigate to your Signal directory automatically.</p>
+          <div className="text-sm text-muted-foreground space-y-2">
+            <div>
+              <p className="font-medium text-foreground mb-1">Quick Setup</p>
+              <p>Upload your Signal Desktop files below. The browser file picker will attempt to navigate to your Signal directory automatically.</p>
+            </div>
+            {defaultPath && defaultPath.path && (
+              <div className="flex items-center gap-2 p-2 bg-background/50 rounded border border-border/50">
+                {defaultPath.exists ? (
+                  <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-orange-500 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground">
+                    {defaultPath.exists ? 'Signal directory found' : 'Signal directory not found'}
+                  </p>
+                  <code className="text-xs text-muted-foreground break-all">{defaultPath.path}</code>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
