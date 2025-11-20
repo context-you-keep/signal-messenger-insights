@@ -4,6 +4,8 @@ import { apiClient } from '@/services/api'
 import { UploadForm } from '@/components/UploadForm'
 import { ConversationList } from '@/components/ConversationList'
 import { MessageView } from '@/components/MessageView'
+import { Badge } from '@/components/ui/badge'
+import { MessageSquare } from 'lucide-react'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,37 +31,37 @@ function AppContent() {
 
   if (!status?.initialized) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <UploadForm onUploadSuccess={handleUploadSuccess} />
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <header className="bg-card border-b p-4 shadow-sm">
+        <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
+          <h1 className="text-2xl font-bold">
             Signal Archive Viewer
           </h1>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {status.conversation_count} conversations
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span className="font-medium">{status.conversation_count} conversations</span>
             {status.mode && (
-              <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">
+              <Badge variant="secondary" className="text-xs">
                 {status.mode}
-              </span>
+              </Badge>
             )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden max-w-screen-2xl w-full mx-auto">
         {/* Conversation List Sidebar */}
-        <div className="w-80 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex flex-col">
-          <div className="p-4 border-b dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="w-80 bg-card border-r flex flex-col">
+          <div className="p-4 border-b">
+            <h2 className="text-lg font-semibold">
               Conversations
             </h2>
           </div>
@@ -72,12 +74,14 @@ function AppContent() {
         </div>
 
         {/* Message View */}
-        <div className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 bg-muted/30">
           {selectedConversationId ? (
             <MessageView conversationId={selectedConversationId} />
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
-              Select a conversation to view messages
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+              <MessageSquare className="w-16 h-16 mb-4 opacity-50" />
+              <p className="text-lg font-medium">Select a conversation to view messages</p>
+              <p className="text-sm mt-1">Choose from the list on the left</p>
             </div>
           )}
         </div>
