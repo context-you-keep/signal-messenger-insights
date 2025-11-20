@@ -3,8 +3,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Users } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Search, Users, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { apiClient } from "@/services/api"
 
 interface Conversation {
   id: string
@@ -21,14 +23,35 @@ interface ConversationListProps {
   conversations: Conversation[]
   selectedId: string
   onSelect: (id: string) => void
+  onLogout?: () => void
 }
 
-export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, onLogout }: ConversationListProps) {
+  const handleLogout = async () => {
+    try {
+      await apiClient.logout()
+      if (onLogout) {
+        onLogout()
+      }
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
   return (
     <div className="flex w-80 flex-col border-r border-[var(--signal-divider)] bg-[var(--signal-bg-primary)]">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-[var(--signal-divider)] px-4 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--signal-divider)] px-4 py-4">
         <h1 className="text-xl font-semibold text-[var(--signal-text-primary)]">Signal</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleLogout}
+          className="text-[var(--signal-text-tertiary)] hover:text-[var(--signal-text-primary)] hover:bg-[var(--signal-bg-secondary)]"
+          title="Logout"
+        >
+          <LogOut className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Search */}

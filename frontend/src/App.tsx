@@ -112,6 +112,11 @@ function AppContent() {
     refetchStatus()
   }
 
+  const handleLogout = () => {
+    // Refetch status which will show upload form when initialized=false
+    refetchStatus()
+  }
+
   // Show upload form if not initialized
   if (!status?.initialized) {
     return (
@@ -159,6 +164,7 @@ function AppContent() {
         conversations={transformedConversations}
         selectedId={selectedConversationId || ''}
         onSelect={setSelectedConversationId}
+        onLogout={handleLogout}
       />
 
       {/* Main Chat Area */}
