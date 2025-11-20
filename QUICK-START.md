@@ -37,13 +37,17 @@
 
 1. **Start the viewer**:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
 2. **Open browser**:
    ```
-   http://localhost:8000
+   http://localhost:3000
    ```
+
+   The viewer runs two services:
+   - Frontend (Next.js) on port 3000
+   - Backend (FastAPI) on port 8000
 
 3. **Upload files**:
    - Upload `signal-config-plain.json` as config.json
@@ -134,7 +138,7 @@ If this is still your current Signal key (hasn't been re-encrypted), you can use
 
 2. Copy your current `~/.config/Signal/sql/db.sqlite`
 
-3. Upload both to http://192.168.1.152:8000
+3. Upload both to http://localhost:3000
 
 **Note**: This only works if Signal hasn't regenerated the encryption key since our testing session.
 
