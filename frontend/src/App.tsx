@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/services/api'
-import { UploadForm } from '@/components/UploadForm'
 import { ConversationList } from '@/components/ConversationList'
 import { MessageView } from '@/components/MessageView'
 import { ConversationHeader } from '@/components/ConversationHeader'
 import { ChatStatistics } from '@/components/ChatStatistics'
-import { Badge } from '@/components/ui/badge'
-import { MessageSquare } from 'lucide-react'
+import type { ConversationSummary, Message } from '@/types/api'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,101 +16,166 @@ const queryClient = new QueryClient({
   },
 })
 
+// ============================================================================
+// DATA TRANSFORMATION LAYER
+// Maps backend API types → v0 component expected types
+// ============================================================================
+
+function formatTimestamp(timestamp: string | null): string {
+  if (!timestamp) return 'N/A'
+
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) {
+    // Today: show time
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  } else if (diffDays === 1) {
+    return 'Yesterday'
+  } else if (diffDays < 7) {
+    // This week: show day name
+    return date.toLocaleDateString('en-US', { weekday: 'long' })
+  } else {
+    // Older: show date
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+}
+
+function transformConversation(conv: ConversationSummary) {
+  return {
+    id: conv.id,
+    name: conv.name || 'Unknown',
+    lastMessage: conv.last_message || 'No messages',
+    timestamp: formatTimestamp(conv.last_message_timestamp),
+    avatar: undefined, // We don't have avatars in backend
+    unread: conv.unread_count > 0 ? conv.unread_count : undefined,
+    isGroup: conv.type === 'group',
+  }
+}
+
+function transformMessage(msg: Message, conversationName: string) {
+  return {
+    id: msg.id,
+    content: msg.body || '[No content]',
+    isSent: msg.sent,
+    sender: msg.sent ? 'You' : conversationName,
+    avatar: undefined, // We don't have avatars in backend
+    timestamp: formatTimestamp(msg.timestamp),
+    status: msg.sent ? ('read' as const) : undefined, // Default to 'read' for sent messages
+  }
+}
+
+// ============================================================================
+// APP CONTENT
+// ============================================================================
+
 function AppContent() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
-  const { data: status, refetch: refetchStatus } = useQuery({
-    queryKey: ['status'],
-    queryFn: apiClient.getStatus,
-    refetchInterval: 5000, // Check status every 5 seconds
-  })
-
-  const { data: conversations } = useQuery({
+  // Fetch conversations from backend
+  const { data: conversations, isLoading: conversationsLoading } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => apiClient.getConversations(100),
-    enabled: status?.initialized === true,
   })
 
-  const { data: messagesData } = useQuery({
+  // Fetch messages for selected conversation
+  const { data: messagesData, isLoading: messagesLoading, error: messagesError } = useQuery({
     queryKey: ['messages', selectedConversationId],
     queryFn: () => apiClient.getMessages(selectedConversationId!, 1, 1000),
     enabled: !!selectedConversationId,
   })
 
+  // Find selected conversation
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
 
-  const handleUploadSuccess = () => {
-    refetchStatus()
+  // Transform data for v0 components
+  const transformedConversations = conversations?.map(transformConversation) || []
+  const transformedMessages = messagesData?.messages.map(msg =>
+    transformMessage(msg, selectedConversation?.name || 'Unknown')
+  ) || []
+
+  // Debug logging
+  console.log('Debug:', {
+    selectedConversationId,
+    messagesDataExists: !!messagesData,
+    messagesCount: messagesData?.messages?.length,
+    transformedCount: transformedMessages.length,
+    messagesLoading,
+    messagesError: messagesError?.message,
+  })
+
+  // Loading state
+  if (conversationsLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--signal-bg-primary)]">
+        <div className="text-[var(--signal-text-primary)]">Loading conversations...</div>
+      </div>
+    )
   }
 
-  if (!status?.initialized) {
+  // No conversations state
+  if (!conversations || conversations.length === 0) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <UploadForm onUploadSuccess={handleUploadSuccess} />
+      <div className="flex h-screen items-center justify-center bg-[var(--signal-bg-primary)]">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-[var(--signal-text-primary)] mb-2">No conversations found</h2>
+          <p className="text-sm text-[var(--signal-text-secondary)]">Upload a Signal database to get started</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="bg-card border-b p-4 shadow-sm">
-        <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
-          <h1 className="text-2xl font-bold">
-            Signal Archive Viewer
-          </h1>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span className="font-medium">{status.conversation_count} conversations</span>
-            {status.mode && (
-              <Badge variant="secondary" className="text-xs">
-                {status.mode}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="flex h-screen bg-[var(--signal-bg-primary)] dark">
+      {/* Conversation List Sidebar */}
+      <ConversationList
+        conversations={transformedConversations}
+        selectedId={selectedConversationId || ''}
+        onSelect={setSelectedConversationId}
+      />
 
-      {/* Main Content: 3-pane layout */}
-      <div className="flex-1 flex overflow-hidden h-screen bg-[var(--signal-bg-primary)]">
-        {/* Conversation List Sidebar */}
-        <div className="w-80 bg-[var(--signal-bg-secondary)] border-r border-[var(--signal-divider)] flex flex-col">
-          <div className="p-4 border-b border-[var(--signal-divider)]">
-            <h2 className="text-lg font-semibold text-[var(--signal-text-primary)]">
-              Conversations
-            </h2>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <ConversationList
-              onSelectConversation={setSelectedConversationId}
-              selectedConversationId={selectedConversationId}
+      {/* Main Chat Area */}
+      <div className="flex flex-1 flex-col">
+        {selectedConversationId && selectedConversation ? (
+          <>
+            <ConversationHeader
+              conversation={{
+                id: selectedConversation.id,
+                name: selectedConversation.name || 'Unknown',
+                avatar: undefined,
+                isGroup: selectedConversation.type === 'group',
+              }}
             />
-          </div>
-        </div>
-
-        {/* Message View with Header */}
-        <div className="flex-1 flex flex-col bg-[var(--signal-bg-primary)]">
-          {selectedConversationId && selectedConversation ? (
-            <>
-              <ConversationHeader conversation={selectedConversation} />
-              <MessageView conversationId={selectedConversationId} />
-            </>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-[var(--signal-text-tertiary)]">
-              <MessageSquare className="w-16 h-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium">Select a conversation to view messages</p>
-              <p className="text-sm mt-1">Choose from the list on the left</p>
+            {messagesLoading ? (
+              <div className="flex-1 flex items-center justify-center bg-[var(--signal-bg-primary)]">
+                <div className="text-[var(--signal-text-secondary)]">Loading messages...</div>
+              </div>
+            ) : (
+              <MessageView messages={transformedMessages} />
+            )}
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-[var(--signal-bg-primary)]">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-[var(--signal-text-primary)] mb-2">Select a conversation</h2>
+              <p className="text-sm text-[var(--signal-text-tertiary)]">Choose from the list on the left</p>
             </div>
-          )}
-        </div>
-
-        {/* Statistics Sidebar */}
-        {selectedConversationId && selectedConversation && messagesData ? (
-          <ChatStatistics
-            conversation={selectedConversation}
-            messages={messagesData.messages}
-          />
-        ) : null}
+          </div>
+        )}
       </div>
+
+      {/* Statistics Sidebar */}
+      {selectedConversationId && selectedConversation && transformedMessages.length > 0 && (
+        <ChatStatistics
+          conversation={{
+            id: selectedConversation.id,
+            name: selectedConversation.name || 'Unknown',
+          }}
+          messages={transformedMessages}
+        />
+      )}
     </div>
   )
 }
