@@ -34,7 +34,29 @@ signal-archive-viewer/
 
 ## Quick Start
 
-### Option 1: Docker (Recommended)
+### ⚡ FASTEST: UI Development Mode (Instant Hot Reload)
+
+For **instant visual feedback** while developing the UI:
+
+```bash
+# Terminal 1: Start backend only
+cd backend
+docker compose up
+
+# Terminal 2: Start frontend dev server (with HMR)
+cd frontend
+npm run dev
+```
+
+Then open http://localhost:5173 in your browser.
+
+**Why this is the fastest:**
+- Vite Hot Module Replacement (HMR) - changes appear in **< 1 second**
+- NO container rebuild needed
+- NO page refresh needed for most React changes
+- Perfect for iterative UI/UX work
+
+### Option 1: Docker (Full Stack)
 
 Build and run the entire application:
 
@@ -55,7 +77,7 @@ pip install -e ".[dev]"
 
 # Frontend
 cd frontend
-pnpm install
+npm install  # or pnpm install
 ```
 
 Run backend:
@@ -69,10 +91,49 @@ Run frontend (in a separate terminal):
 
 ```bash
 cd frontend
-pnpm dev
+npm run dev
 ```
 
 Frontend will be available at http://localhost:5173 and will proxy API requests to the backend.
+
+## UI Development Guide
+
+### Communicating Design Changes
+
+When describing what you want visually, be specific:
+
+**Good examples:**
+- "Make the conversation cards more prominent with shadows"
+- "Increase spacing between messages"
+- "Make the upload area look like a dropzone with dashed border"
+- "Use blue accent for the selected conversation"
+- "Show loading skeleton while conversations are loading"
+- "Add hover states to conversation list items"
+
+**Reference tools:**
+- shadcn/ui examples: https://ui.shadcn.com/
+- Tailwind colors: https://tailwindcss.com/docs/customizing-colors
+- Screenshots/mockups always help
+
+### Tech Stack
+
+- **React 18** with **TypeScript**
+- **Vite** - Build tool (super fast HMR)
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - High-quality component primitives
+- **TanStack Query** - Server state management
+
+### Component Structure
+- `src/components/ui/` - shadcn base components (Button, Card, Input, etc.)
+- `src/components/` - App-specific components (UploadForm, MessageView, etc.)
+- Modify app components freely
+- Extend UI components as needed
+
+### Port Reference
+
+- `5173` - Vite dev server (frontend development)
+- `8000` - Full stack Docker (production-like)
+- `3000` - Backend API (when run standalone)
 
 ## Backend Development
 

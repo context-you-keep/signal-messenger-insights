@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/services/api'
 import type { ConversationSummary } from '@/types/api'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import { MessageSquare } from 'lucide-react'
 
 interface ConversationListProps {
   onSelectConversation: (conversationId: string) => void
@@ -18,39 +22,49 @@ export function ConversationList({
 
   if (isLoading) {
     return (
-      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-        Loading conversations...
+      <div className="p-4 space-y-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        ))}
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 text-center text-red-600 dark:text-red-400">
-        Failed to load conversations
+      <div className="p-4 text-center">
+        <div className="text-sm font-medium text-destructive">Failed to load conversations</div>
+        <p className="text-xs text-muted-foreground mt-1">Please try refreshing the page</p>
       </div>
     )
   }
 
   if (!conversations || conversations.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-        No conversations found
+      <div className="p-8 text-center">
+        <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+        <p className="text-sm font-medium text-muted-foreground">No conversations found</p>
       </div>
     )
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      {conversations.map((conversation) => (
-        <ConversationItem
-          key={conversation.id}
-          conversation={conversation}
-          isSelected={conversation.id === selectedConversationId}
-          onClick={() => onSelectConversation(conversation.id)}
-        />
-      ))}
-    </div>
+    <ScrollArea className="h-full">
+      <div className="divide-y">
+        {conversations.map((conversation) => (
+          <ConversationItem
+            key={conversation.id}
+            conversation={conversation}
+            isSelected={conversation.id === selectedConversationId}
+            onClick={() => onSelectConversation(conversation.id)}
+          />
+        ))}
+      </div>
+    </ScrollArea>
   )
 }
 
@@ -79,27 +93,29 @@ function ConversationItem({ conversation, isSelected, onClick }: ConversationIte
   return (
     <button
       onClick={onClick}
-      className={`w-full p-4 border-b dark:border-gray-700 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-        isSelected ? 'bg-blue-50 dark:bg-blue-900' : ''
+      className={`w-full p-4 text-left hover:bg-accent/50 transition-all duration-150 ${
+        isSelected ? 'bg-accent border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'
       }`}
     >
-      <div className="flex justify-between items-start mb-1">
-        <h3 className="font-semibold text-gray-900 dark:text-white truncate flex-1">
+      <div className="flex justify-between items-start mb-1.5">
+        <h3 className={`font-semibold truncate flex-1 ${isSelected ? 'text-foreground' : 'text-foreground'}`}>
           {conversation.name || 'Unknown'}
         </h3>
-        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+        <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
           {formatDate(conversation.last_message_timestamp)}
         </span>
       </div>
-      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+      <p className="text-sm text-muted-foreground truncate mb-2">
         {conversation.last_message || 'No messages'}
       </p>
-      <div className="flex items-center mt-1 text-xs text-gray-500 dark:text-gray-400">
-        <span>{conversation.message_count} messages</span>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground">
+          {conversation.message_count} messages
+        </span>
         {conversation.unread_count > 0 && (
-          <span className="ml-2 px-2 py-0.5 bg-blue-600 text-white rounded-full">
+          <Badge variant="default" className="h-5 px-2 text-xs">
             {conversation.unread_count}
-          </span>
+          </Badge>
         )}
       </div>
     </button>
