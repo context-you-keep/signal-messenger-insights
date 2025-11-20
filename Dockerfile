@@ -47,6 +47,13 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 # Create directory for temporary files
 RUN mkdir -p /tmp/signal_archive && chmod 1777 /tmp/signal_archive
 
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
 # Expose port
 EXPOSE 8000
 
