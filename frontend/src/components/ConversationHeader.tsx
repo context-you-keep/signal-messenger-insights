@@ -1,29 +1,30 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Phone, Video, MoreVertical } from "lucide-react"
-import type { ConversationSummary } from "@/types/api"
+
+interface Conversation {
+  id: string
+  name: string
+  avatar?: string
+  isGroup?: boolean
+}
 
 interface ConversationHeaderProps {
-  conversation: ConversationSummary
+  conversation: Conversation
 }
 
 export function ConversationHeader({ conversation }: ConversationHeaderProps) {
-  const isGroup = conversation.type === "group"
-
   return (
     <div className="flex items-center justify-between border-b border-[var(--signal-divider)] bg-[var(--signal-bg-secondary)] px-6 py-4">
       <div className="flex items-center gap-3">
         <Avatar className="h-10 w-10">
-          <AvatarFallback className="bg-[var(--signal-blue)] text-white">
-            {conversation.name?.charAt(0) || "?"}
-          </AvatarFallback>
+          <AvatarImage src={conversation.avatar || "/placeholder.svg"} alt={conversation.name} />
+          <AvatarFallback className="bg-[var(--signal-blue)] text-white">{conversation.name.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>
-          <h2 className="font-semibold text-[var(--signal-text-primary)]">
-            {conversation.name || "Unknown"}
-          </h2>
+          <h2 className="font-semibold text-[var(--signal-text-primary)]">{conversation.name}</h2>
           <p className="text-sm text-[var(--signal-text-tertiary)]">
-            {isGroup ? `Group conversation` : "Archive"}
+            {conversation.isGroup ? `${Math.floor(Math.random() * 10) + 3} members` : "Last seen recently"}
           </p>
         </div>
       </div>
@@ -33,7 +34,6 @@ export function ConversationHeader({ conversation }: ConversationHeaderProps) {
           variant="ghost"
           size="icon"
           className="text-[var(--signal-text-secondary)] hover:bg-[var(--signal-bg-tertiary)] hover:text-[var(--signal-text-primary)]"
-          disabled
         >
           <Phone className="h-5 w-5" />
         </Button>
@@ -41,7 +41,6 @@ export function ConversationHeader({ conversation }: ConversationHeaderProps) {
           variant="ghost"
           size="icon"
           className="text-[var(--signal-text-secondary)] hover:bg-[var(--signal-bg-tertiary)] hover:text-[var(--signal-text-primary)]"
-          disabled
         >
           <Video className="h-5 w-5" />
         </Button>
@@ -49,7 +48,6 @@ export function ConversationHeader({ conversation }: ConversationHeaderProps) {
           variant="ghost"
           size="icon"
           className="text-[var(--signal-text-secondary)] hover:bg-[var(--signal-bg-tertiary)] hover:text-[var(--signal-text-primary)]"
-          disabled
         >
           <MoreVertical className="h-5 w-5" />
         </Button>

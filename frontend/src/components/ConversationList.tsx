@@ -1,123 +1,90 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/services/api'
-import type { ConversationSummary } from '@/types/api'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
-import { MessageSquare } from 'lucide-react'
+"use client"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Search, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+interface Conversation {
+  id: string
+  name: string
+  avatar?: string
+  lastMessage: string
+  timestamp: string
+  unread?: number
+  isGroup?: boolean
+}
 
 interface ConversationListProps {
-  onSelectConversation: (conversationId: string) => void
-  selectedConversationId: string | null
+  conversations: Conversation[]
+  selectedId: string
+  onSelect: (id: string) => void
 }
 
-export function ConversationList({
-  onSelectConversation,
-  selectedConversationId,
-}: ConversationListProps) {
-  const { data: conversations, isLoading, error } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: () => apiClient.getConversations(),
-  })
-
-  if (isLoading) {
-    return (
-      <div className="p-4 space-y-4">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 text-center">
-        <div className="text-sm font-medium text-destructive">Failed to load conversations</div>
-        <p className="text-xs text-muted-foreground mt-1">Please try refreshing the page</p>
-      </div>
-    )
-  }
-
-  if (!conversations || conversations.length === 0) {
-    return (
-      <div className="p-8 text-center">
-        <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-        <p className="text-sm font-medium text-muted-foreground">No conversations found</p>
-      </div>
-    )
-  }
-
+export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
   return (
-    <ScrollArea className="h-full">
-      <div className="divide-y">
-        {conversations.map((conversation) => (
-          <ConversationItem
-            key={conversation.id}
-            conversation={conversation}
-            isSelected={conversation.id === selectedConversationId}
-            onClick={() => onSelectConversation(conversation.id)}
+    <div className="flex w-80 flex-col border-r border-[var(--signal-divider)] bg-[var(--signal-bg-primary)]">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-[var(--signal-divider)] px-4 py-4">
+        <h1 className="text-xl font-semibold text-[var(--signal-text-primary)]">Signal</h1>
+      </div>
+
+      {/* Search */}
+      <div className="border-b border-[var(--signal-divider)] p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--signal-text-tertiary)]" />
+          <Input
+            placeholder="Search"
+            className="border-none bg-[var(--signal-bg-secondary)] pl-9 text-[var(--signal-text-primary)] placeholder:text-[var(--signal-text-tertiary)] focus-visible:ring-1 focus-visible:ring-[var(--signal-blue)]"
           />
-        ))}
+        </div>
       </div>
-    </ScrollArea>
-  )
-}
 
-interface ConversationItemProps {
-  conversation: ConversationSummary
-  isSelected: boolean
-  onClick: () => void
-}
+      {/* Conversation List */}
+      <ScrollArea className="flex-1">
+        <div className="py-2">
+          {conversations.map((conversation) => (
+            <button
+              key={conversation.id}
+              onClick={() => onSelect(conversation.id)}
+              className={cn(
+                "flex w-full items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--signal-bg-tertiary)]",
+                selectedId === conversation.id && "bg-[var(--signal-bg-secondary)]",
+              )}
+            >
+              <div className="relative">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={conversation.avatar || "/placeholder.svg"} alt={conversation.name} />
+                  <AvatarFallback className="bg-[var(--signal-blue)] text-white">
+                    {conversation.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                {conversation.isGroup && (
+                  <div className="absolute -bottom-1 -right-1 rounded-full bg-[var(--signal-bg-primary)] p-0.5">
+                    <Users className="h-3 w-3 text-[var(--signal-text-secondary)]" />
+                  </div>
+                )}
+              </div>
 
-function ConversationItem({ conversation, isSelected, onClick }: ConversationItemProps) {
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    } else if (diffDays < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' })
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    }
-  }
-
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full p-4 text-left hover:bg-accent/50 transition-all duration-150 ${
-        isSelected ? 'bg-accent border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'
-      }`}
-    >
-      <div className="flex justify-between items-start mb-1.5">
-        <h3 className={`font-semibold truncate flex-1 ${isSelected ? 'text-foreground' : 'text-foreground'}`}>
-          {conversation.name || 'Unknown'}
-        </h3>
-        <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-          {formatDate(conversation.last_message_timestamp)}
-        </span>
-      </div>
-      <p className="text-sm text-muted-foreground truncate mb-2">
-        {conversation.last_message || 'No messages'}
-      </p>
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-muted-foreground">
-          {conversation.message_count} messages
-        </span>
-        {conversation.unread_count > 0 && (
-          <Badge variant="default" className="h-5 px-2 text-xs">
-            {conversation.unread_count}
-          </Badge>
-        )}
-      </div>
-    </button>
+              <div className="flex-1 overflow-hidden text-left">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="truncate font-semibold text-[var(--signal-text-primary)]">{conversation.name}</h3>
+                  <span className="shrink-0 text-xs text-[var(--signal-text-tertiary)]">{conversation.timestamp}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm text-[var(--signal-text-secondary)]">{conversation.lastMessage}</p>
+                  {conversation.unread && conversation.unread > 0 && (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--signal-blue)] text-xs font-semibold text-white">
+                      {conversation.unread}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   )
 }
