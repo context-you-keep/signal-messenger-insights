@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log
+.pnpm-store/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Testing
+.coverage
+htmlcov/
+coverage/
+
+# Temporary
+*.tmp
+tmp/
