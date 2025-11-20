@@ -24,6 +24,19 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* Signal-specific tokens */
+    --signal-bg-primary: oklch(0.125 0.008 255); /* #1b1c1f */
+    --signal-bg-secondary: oklch(0.18 0.01 255); /* #2c2e3b */
+    --signal-bg-tertiary: oklch(0.16 0.009 255); /* #25262f */
+    --signal-blue: oklch(0.52 0.18 255.5); /* #3a76f0 */
+    --signal-blue-hover: oklch(0.48 0.18 255.5);
+    --signal-message-sent: oklch(0.52 0.18 255.5);
+    --signal-message-received: oklch(0.18 0.01 255);
+    --signal-text-primary: oklch(0.95 0 0);
+    --signal-text-secondary: oklch(0.65 0.01 255);
+    --signal-text-tertiary: oklch(0.5 0.01 255);
+    --signal-divider: oklch(0.22 0.01 255);
   }
 
   .dark {
@@ -46,6 +59,19 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+
+    /* Signal-specific dark tokens (same as light - Signal is dark-first) */
+    --signal-bg-primary: oklch(0.125 0.008 255);
+    --signal-bg-secondary: oklch(0.18 0.01 255);
+    --signal-bg-tertiary: oklch(0.16 0.009 255);
+    --signal-blue: oklch(0.52 0.18 255.5);
+    --signal-blue-hover: oklch(0.48 0.18 255.5);
+    --signal-message-sent: oklch(0.52 0.18 255.5);
+    --signal-message-received: oklch(0.18 0.01 255);
+    --signal-text-primary: oklch(0.95 0 0);
+    --signal-text-secondary: oklch(0.65 0.01 255);
+    --signal-text-tertiary: oklch(0.5 0.01 255);
+    --signal-divider: oklch(0.22 0.01 255);
   }
 }
 

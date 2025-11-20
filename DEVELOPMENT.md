@@ -129,6 +129,40 @@ When describing what you want visually, be specific:
 - Modify app components freely
 - Extend UI components as needed
 
+### Integrating v0.dev Templates
+
+When using v0.dev to design UI components, follow this workflow:
+
+**Step 1: Copy Template 100%**
+1. Design the component in v0.dev
+2. Download/export the template code
+3. Copy it EXACTLY as-is into your component file
+4. DO NOT adapt data or structure yet - get it rendering with placeholder data first
+5. Verify all visuals, styling, and components work perfectly
+
+**Step 2: Wire Backend Data**
+1. Replace hardcoded values with real API data
+2. Fix field name differences (`m.isSent` → `m.sent`)
+3. Adapt type imports (`import from "@/types/api"`)
+4. Keep ALL styling, structure, and shadcn components unchanged
+
+**Why This Works:**
+- ✅ Separates design (v0's expertise) from data integration (your work)
+- ✅ Easier debugging - know if issues are visual or data-related
+- ✅ Respects v0's tested, production-ready UI
+- ✅ Faster iteration - one concern at a time
+
+**What NOT to do:**
+- ❌ Adapt template and wire data simultaneously
+- ❌ Change structure thinking you're "improving" it
+- ❌ Over-engineer the data layer before confirming visuals work
+
+**Minimal Required Changes:**
+- Remove Next.js-specific imports (`Link`, `Image`)
+- Fix type imports to match your API
+- Change data field names only
+- Remove features not applicable to React Router (e.g., `href` → `onClick`)
+
 ### Port Reference
 
 - `5173` - Vite dev server (frontend development)

@@ -48,6 +48,18 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Signal custom colors
+        "signal-bg-primary": "var(--signal-bg-primary)",
+        "signal-bg-secondary": "var(--signal-bg-secondary)",
+        "signal-bg-tertiary": "var(--signal-bg-tertiary)",
+        "signal-blue": "var(--signal-blue)",
+        "signal-blue-hover": "var(--signal-blue-hover)",
+        "signal-message-sent": "var(--signal-message-sent)",
+        "signal-message-received": "var(--signal-message-received)",
+        "signal-text-primary": "var(--signal-text-primary)",
+        "signal-text-secondary": "var(--signal-text-secondary)",
+        "signal-text-tertiary": "var(--signal-text-tertiary)",
+        "signal-divider": "var(--signal-divider)",
       },
       borderRadius: {
         lg: "var(--radius)",

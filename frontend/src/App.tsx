@@ -4,6 +4,8 @@ import { apiClient } from '@/services/api'
 import { UploadForm } from '@/components/UploadForm'
 import { ConversationList } from '@/components/ConversationList'
 import { MessageView } from '@/components/MessageView'
+import { ConversationHeader } from '@/components/ConversationHeader'
+import { ChatStatistics } from '@/components/ChatStatistics'
 import { Badge } from '@/components/ui/badge'
 import { MessageSquare } from 'lucide-react'
 
@@ -24,6 +26,20 @@ function AppContent() {
     queryFn: apiClient.getStatus,
     refetchInterval: 5000, // Check status every 5 seconds
   })
+
+  const { data: conversations } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => apiClient.getConversations(100),
+    enabled: status?.initialized === true,
+  })
+
+  const { data: messagesData } = useQuery({
+    queryKey: ['messages', selectedConversationId],
+    queryFn: () => apiClient.getMessages(selectedConversationId!, 1, 1000),
+    enabled: !!selectedConversationId,
+  })
+
+  const selectedConversation = conversations?.find(c => c.id === selectedConversationId)
 
   const handleUploadSuccess = () => {
     refetchStatus()
@@ -56,12 +72,12 @@ function AppContent() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden max-w-screen-2xl w-full mx-auto">
+      {/* Main Content: 3-pane layout */}
+      <div className="flex-1 flex overflow-hidden h-screen bg-[var(--signal-bg-primary)]">
         {/* Conversation List Sidebar */}
-        <div className="w-80 bg-card border-r flex flex-col">
-          <div className="p-4 border-b">
-            <h2 className="text-lg font-semibold">
+        <div className="w-80 bg-[var(--signal-bg-secondary)] border-r border-[var(--signal-divider)] flex flex-col">
+          <div className="p-4 border-b border-[var(--signal-divider)]">
+            <h2 className="text-lg font-semibold text-[var(--signal-text-primary)]">
               Conversations
             </h2>
           </div>
@@ -73,18 +89,29 @@ function AppContent() {
           </div>
         </div>
 
-        {/* Message View */}
-        <div className="flex-1 bg-muted/30">
-          {selectedConversationId ? (
-            <MessageView conversationId={selectedConversationId} />
+        {/* Message View with Header */}
+        <div className="flex-1 flex flex-col bg-[var(--signal-bg-primary)]">
+          {selectedConversationId && selectedConversation ? (
+            <>
+              <ConversationHeader conversation={selectedConversation} />
+              <MessageView conversationId={selectedConversationId} />
+            </>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+            <div className="h-full flex flex-col items-center justify-center text-[var(--signal-text-tertiary)]">
               <MessageSquare className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg font-medium">Select a conversation to view messages</p>
               <p className="text-sm mt-1">Choose from the list on the left</p>
             </div>
           )}
         </div>
+
+        {/* Statistics Sidebar */}
+        {selectedConversationId && selectedConversation && messagesData ? (
+          <ChatStatistics
+            conversation={selectedConversation}
+            messages={messagesData.messages}
+          />
+        ) : null}
       </div>
     </div>
   )

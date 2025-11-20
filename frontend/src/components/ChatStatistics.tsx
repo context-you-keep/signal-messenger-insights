@@ -1,0 +1,128 @@
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { MessageSquare, Sparkles, ChevronRight } from "lucide-react"
+import type { ConversationSummary, Message } from "@/types/api"
+
+interface ChatStatisticsProps {
+  conversation: ConversationSummary
+  messages: Message[]
+}
+
+export function ChatStatistics({ conversation, messages }: ChatStatisticsProps) {
+  const totalMessages = messages.length
+  const sentMessages = messages.filter((m) => m.sent).length
+  const receivedMessages = messages.filter((m) => !m.sent).length
+
+  // Calculate who talks more
+  const talkMorePercentage = totalMessages > 0 ? Math.round((sentMessages / totalMessages) * 100) : 50
+  const whoTalksMore = sentMessages > receivedMessages ? "You" : sentMessages < receivedMessages ? "Them" : "Equal"
+
+  // Get first and last message timestamps
+  const firstMessageDate = messages.length > 0 ? new Date(messages[0].timestamp).toLocaleString() : "N/A"
+  const lastMessageDate = messages.length > 0 ? new Date(messages[messages.length - 1].timestamp).toLocaleString() : "N/A"
+
+  return (
+    <div className="flex w-80 flex-col border-l border-[var(--signal-divider)] bg-[var(--signal-bg-primary)]">
+      <div className="border-b border-[var(--signal-divider)] px-5 py-4 hover:bg-[var(--signal-bg-secondary)] transition-colors cursor-pointer group">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-[var(--signal-text-primary)]">Statistics</h2>
+            <p className="text-sm text-[var(--signal-text-tertiary)]">{conversation.name}</p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-[var(--signal-text-tertiary)] group-hover:text-[var(--signal-text-primary)] transition-colors" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        {/* Basic Statistics Box */}
+        <Card className="border-[var(--signal-divider)] bg-[var(--signal-bg-secondary)] p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="rounded-lg bg-[var(--signal-blue)]/10 p-2">
+              <MessageSquare className="h-5 w-5 text-[var(--signal-blue)]" />
+            </div>
+            <h3 className="font-semibold text-[var(--signal-text-primary)]">Chat Overview</h3>
+          </div>
+
+          <div className="space-y-3">
+            {/* Total messages */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--signal-text-tertiary)]">Total messages</span>
+              <span className="text-sm font-semibold text-[var(--signal-text-primary)]">{totalMessages}</span>
+            </div>
+
+            <Separator className="bg-[var(--signal-divider)]" />
+
+            {/* Sent/Received breakdown */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--signal-text-tertiary)]">Messages from you</span>
+              <span className="text-sm font-semibold text-[var(--signal-text-primary)]">{sentMessages}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--signal-text-tertiary)]">Messages from them</span>
+              <span className="text-sm font-semibold text-[var(--signal-text-primary)]">{receivedMessages}</span>
+            </div>
+
+            <Separator className="bg-[var(--signal-divider)]" />
+
+            {/* Who talks more */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--signal-text-tertiary)]">Who talks more?</span>
+              <span className="text-sm font-semibold text-[var(--signal-blue)]">
+                {whoTalksMore} ({talkMorePercentage}%)
+              </span>
+            </div>
+
+            <Separator className="bg-[var(--signal-divider)]" />
+
+            {/* First message */}
+            <div>
+              <p className="text-xs text-[var(--signal-text-tertiary)] mb-1">First message</p>
+              <p className="text-sm font-medium text-[var(--signal-text-primary)]">{firstMessageDate}</p>
+            </div>
+
+            {/* Last message */}
+            <div>
+              <p className="text-xs text-[var(--signal-text-tertiary)] mb-1">Latest message</p>
+              <p className="text-sm font-medium text-[var(--signal-text-primary)]">{lastMessageDate}</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* AI-Enhanced Insights Box */}
+        <Card className="border-[var(--signal-divider)] bg-[var(--signal-bg-secondary)] p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="rounded-lg bg-[var(--signal-blue)]/10 p-2">
+              <Sparkles className="h-5 w-5 text-[var(--signal-blue)]" />
+            </div>
+            <h3 className="font-semibold text-[var(--signal-text-primary)]">AI Insights</h3>
+          </div>
+
+          <div className="space-y-3">
+            {/* Communication style */}
+            <div>
+              <p className="text-xs text-[var(--signal-text-tertiary)] mb-1">Communication style</p>
+              <p className="text-sm text-[var(--signal-text-secondary)] leading-relaxed">Analysis pending...</p>
+            </div>
+
+            <Separator className="bg-[var(--signal-divider)]" />
+
+            {/* Emotional tone trends */}
+            <div>
+              <p className="text-xs text-[var(--signal-text-tertiary)] mb-1">Emotional tone trends</p>
+              <p className="text-sm text-[var(--signal-text-secondary)] leading-relaxed">Analysis pending...</p>
+            </div>
+
+            <Separator className="bg-[var(--signal-divider)]" />
+
+            {/* Main conversation topics */}
+            <div>
+              <p className="text-xs text-[var(--signal-text-tertiary)] mb-1">Main conversation topics</p>
+              <p className="text-sm text-[var(--signal-text-secondary)] leading-relaxed">Analysis pending...</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
