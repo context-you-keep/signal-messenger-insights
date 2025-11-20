@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/services/api'
+import { UploadForm } from '@/components/UploadForm'
 import { ConversationList } from '@/components/ConversationList'
 import { MessageView } from '@/components/MessageView'
 import { ConversationHeader } from '@/components/ConversationHeader'
@@ -75,10 +76,18 @@ function transformMessage(msg: Message, conversationName: string) {
 function AppContent() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
-  // Fetch conversations from backend
+  // Check initialization status
+  const { data: status, refetch: refetchStatus } = useQuery({
+    queryKey: ['status'],
+    queryFn: apiClient.getStatus,
+    refetchInterval: 5000,
+  })
+
+  // Fetch conversations from backend (only when initialized)
   const { data: conversations, isLoading: conversationsLoading } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => apiClient.getConversations(100),
+    enabled: status?.initialized === true,
   })
 
   // Fetch messages for selected conversation
@@ -96,6 +105,19 @@ function AppContent() {
   const transformedMessages = messagesData?.messages.map(msg =>
     transformMessage(msg, selectedConversation?.name || 'Unknown')
   ) || []
+
+  const handleUploadSuccess = () => {
+    refetchStatus()
+  }
+
+  // Show upload form if not initialized
+  if (!status?.initialized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <UploadForm onUploadSuccess={handleUploadSuccess} />
+      </div>
+    )
+  }
 
   // Debug logging
   console.log('Debug:', {
