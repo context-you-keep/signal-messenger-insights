@@ -6,70 +6,96 @@ This document should be followed for this project and only deviated from with st
 
 **Project:** signal-archive-viewer
 
-## App Type
-- Local-only desktop GUI
-- No network access required for core features
+## Runtime Model
+
+- Single Docker container
+- Local-only web UI on http://localhost:<port>
+- User mounts Signal Desktop directory as a volume OR uploads files via UI
+
+## Backend
+
+- **Language:** Python 3.12
+- **Framework:** FastAPI
+- **Server:** uvicorn
+- **Responsibilities:**
+  - Accept filesystem paths from mounted volume (e.g. /signal/)
+  - OR accept uploaded config.json + db.sqlite
+  - Parse config.json and extract/decode encryption key
+  - Decrypt encrypted db.sqlite into:
+    - In-memory SQLite (preferred) or
+    - Temp on-disk SQLite file in /tmp with secure deletion
+  - Provide REST/JSON APIs:
+    - GET /conversations
+    - GET /conversations/{id}/messages (pagination)
+    - GET /attachments/{id}
+    - POST /search
+    - (future) POST /llm/insights
+
+## Storage
+
+- **Read-only Source:**
+  - Mounted volume: /signal → host: Signal profile dir
+- **Working Copy:**
+  - SQLite decrypted DB (in-memory or temp file)
+- **App Metadata:**
+  - SQLite file in /data (tags, exports, settings)
 
 ## Frontend
 
-- **Framework:** Tauri
-- **UI Library:** React 18
+- **Framework:** React 18
+- **Bundler:** Vite
 - **Language:** TypeScript (strict)
 - **Styling:** Tailwind CSS
-- **Components:** shadcn/ui (where useful)
+- **Components:** shadcn/ui
 - **State Management:**
-  - Local React state (default)
-  - Zustand (only if complex client state emerges)
+  - React Query (server state)
+  - Local React state for UI controls
+- **Build Output:**
+  - Static assets built to /app/frontend/dist
+  - Served by FastAPI via StaticFiles at / (root)
 
-## Core Backend
+## LLM Integration (Future)
 
-- **Runtime:** Rust (Tauri backend)
-- **Responsibilities:**
-  - Locate Signal Desktop profile directory (per OS)
-  - Read and parse config.json
-  - Extract and decode encryption key
-  - Decrypt encrypted db.sqlite into:
-    - In-memory SQLite DB (preferred), or
-    - Temp on-disk SQLite with secure deletion
-  - Provide a narrow IPC API to the frontend for:
-    - Listing conversations
-    - Fetching message pages
-    - Resolving attachments to local files
+- **Options:**
+  - Local: Ollama or similar on host (backend calls http://host.docker.internal:11434)
+  - Remote: OpenAI / Anthropic / other HTTP APIs
+- **Adapter Layer:**
+  - Python service module llm_client.py
+  - Config via environment variables (API keys, base URLs)
 
-## Data Storage
+## Docker
 
-- **Primary:**
-  - Encrypted Signal DB (read-only)
-- **Working Copy:**
-  - SQLite (decrypted, in-memory or temp file)
-- **Local Metadata:**
-  - Optional SQLite or JSON for:
-    - User-defined tags
-    - Export history
-    - View state (favorites, filters)
-
-## Platforms
-
-- Windows (Signal Desktop default path)
-- macOS
-- Linux
-
-## Testing
-
-- **Rust:** cargo test (core decryption + DB access)
-- **TypeScript:** Vitest for UI logic
-- **E2E:** Playwright (optional, later)
-
-## Packaging
-
-Tauri bundling for:
-- `.exe` (Windows)
-- `.dmg`/`.app` (macOS)
-- `.AppImage`/`.deb` (Linux)
+- **Base Image:** python:3.12-slim
+- **Pattern:** multi-stage build
+- **Stages:**
+  - **frontend-build:**
+    - Image: node:22-alpine
+    - Tools: pnpm
+    - Output: frontend/dist
+  - **backend-runtime:**
+    - Image: python:3.12-slim
+    - Copies:
+      - FastAPI app
+      - Built frontend/dist → /app/static
+- **Ports:**
+  - Container: 8000
+  - Host: 127.0.0.1:8000
+- **Volumes Example:**
+  - Host: ~/.config/Signal
+  - Container: /signal
 
 ## Tooling
 
-- **Package Manager:** pnpm
+- **Package Manager (Frontend):** pnpm
+- **Package Manager (Backend):** uv (or pip + uvlock)
 - **Linting & Formatting:**
+  - Python: ruff + black
   - TypeScript: ESLint + Prettier
-  - Rust: rustfmt + clippy
+- **Testing:**
+  - Backend: pytest
+  - Frontend: Vitest + Testing Library
+  - E2E (optional later): Playwright against http://localhost:8000
+
+## Entrypoint
+
+- Start uvicorn app: app.main:app on 0.0.0.0:8000
