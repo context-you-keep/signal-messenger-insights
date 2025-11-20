@@ -1,25 +1,35 @@
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { MessageSquare, Sparkles, ChevronRight } from "lucide-react"
-import type { ConversationSummary, Message } from "@/types/api"
+
+interface Conversation {
+  id: string
+  name: string
+}
+
+interface Message {
+  id: string
+  isSent: boolean
+  timestamp: string
+}
 
 interface ChatStatisticsProps {
-  conversation: ConversationSummary
+  conversation: Conversation
   messages: Message[]
 }
 
 export function ChatStatistics({ conversation, messages }: ChatStatisticsProps) {
   const totalMessages = messages.length
-  const sentMessages = messages.filter((m) => m.sent).length
-  const receivedMessages = messages.filter((m) => !m.sent).length
+  const sentMessages = messages.filter((m) => m.isSent).length
+  const receivedMessages = messages.filter((m) => !m.isSent).length
 
   // Calculate who talks more
   const talkMorePercentage = totalMessages > 0 ? Math.round((sentMessages / totalMessages) * 100) : 50
   const whoTalksMore = sentMessages > receivedMessages ? "You" : sentMessages < receivedMessages ? "Them" : "Equal"
 
-  // Get first and last message timestamps
-  const firstMessageDate = messages.length > 0 ? new Date(messages[0].timestamp).toLocaleString() : "N/A"
-  const lastMessageDate = messages.length > 0 ? new Date(messages[messages.length - 1].timestamp).toLocaleString() : "N/A"
+  // Get first and last message timestamps (using placeholder values for now)
+  const firstMessageDate = messages.length > 0 ? "Jan 15, 2024 10:30 AM" : "N/A"
+  const lastMessageDate = messages.length > 0 ? "Jan 20, 2024 2:45 PM" : "N/A"
 
   return (
     <div className="flex w-80 flex-col border-l border-[var(--signal-divider)] bg-[var(--signal-bg-primary)]">
