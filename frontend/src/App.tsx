@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/services/api'
 import { UploadForm } from '@/components/UploadForm'
@@ -6,6 +7,7 @@ import { ConversationList } from '@/components/ConversationList'
 import { MessageView } from '@/components/MessageView'
 import { ConversationHeader } from '@/components/ConversationHeader'
 import { ChatStatistics } from '@/components/ChatStatistics'
+import { StatisticsPage } from '@/components/StatisticsPage'
 import type { ConversationSummary, Message } from '@/types/api'
 
 const queryClient = new QueryClient({
@@ -190,14 +192,14 @@ function AppContent() {
       </div>
 
       {/* Statistics Sidebar */}
-      {selectedConversationId && selectedConversation && transformedMessages.length > 0 && (
+      {selectedConversationId && selectedConversation && messagesData && (
         <ChatStatistics
           conversation={{
             id: selectedConversation.id,
             name: selectedConversation.name || 'Unknown',
           }}
           messages={transformedMessages}
-          totalMessages={messagesData?.total || transformedMessages.length}
+          totalMessages={messagesData.total}
         />
       )}
     </div>
@@ -207,7 +209,12 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<AppContent />} />
+          <Route path="/stats/:conversationId" element={<StatisticsPage />} />
+        </Routes>
+      </BrowserRouter>
     </QueryClientProvider>
   )
 }
