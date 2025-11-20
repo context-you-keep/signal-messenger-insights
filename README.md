@@ -68,8 +68,36 @@ The app decrypts the database **in-memory**, loads your conversations, and never
 
 You will need:
 
-* `config.json`
+* `config.json` - **See important note below about encrypted keys**
 * `sql/db.sqlite`, `db.sqlite-wal`, `db.sqlite-shm` (upload only `db.sqlite` — other two are optional)
+
+### ⚠️ Important: Encrypted Key vs Plain Key
+
+Signal Desktop stores the database encryption key in two possible ways:
+
+1. **Plain key** (older Signal versions): `config.json` contains a `"key"` field with the actual encryption key
+2. **Encrypted key** (newer Signal versions): `config.json` contains an `"encryptedKey"` field that's encrypted using your system keyring
+
+**If your config.json has an `encryptedKey` field**, the Docker container cannot decrypt it because it doesn't have access to your system keyring.
+
+**Solution**: Extract the plain key on your Signal Desktop system, then create a simple config.json:
+
+```bash
+# On your Signal Desktop system, run:
+./extract-signal-key.sh
+```
+
+This will output your decrypted database key. Then create a new `config.json`:
+
+```json
+{
+  "key": "your-extracted-key-here"
+}
+```
+
+Upload this simplified `config.json` along with your `db.sqlite`.
+
+**Security Note**: The extracted key can decrypt your entire Signal history. Keep it secure and never share it.
 
 ---
 
