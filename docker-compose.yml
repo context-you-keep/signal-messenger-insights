@@ -1,12 +1,11 @@
 services:
-  signal-archive-viewer:
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: signal-archive-viewer
-    network_mode: host
-    # ports:  # Not needed with host network mode
-    #   - "0.0.0.0:8000:8000"
+      dockerfile: Dockerfile.backend
+    container_name: signal-archive-backend
+    ports:
+      - "8000:8000"
     # Optional: Mount Signal directory for volume mode
     # volumes:
     #   - ~/.config/Signal:/signal:ro  # Linux
@@ -27,5 +26,24 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: '1'
+          memory: 1G
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: signal-archive-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    # Limit resources
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
