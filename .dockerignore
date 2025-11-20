@@ -16,8 +16,12 @@ pip-log.txt
 
 # Node
 node_modules/
+**/node_modules/
+frontend/node_modules/
 npm-debug.log
 .pnpm-store/
+frontend/dist/
+frontend/.vite/
 
 # IDE
 .vscode
