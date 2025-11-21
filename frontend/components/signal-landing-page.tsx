@@ -73,30 +73,43 @@ export function SignalLandingPage() {
 
 
   const copyToClipboard = async (text: string, os: "linux" | "macos" | "windows") => {
-    try {
-      // Try modern clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+    let success = false
+
+    // Try modern clipboard API first (requires secure context)
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
         await navigator.clipboard.writeText(text)
-      } else {
-        // Fallback for browsers that don't support clipboard API
+        success = true
+      } catch (err) {
+        console.warn("Clipboard API failed:", err)
+      }
+    }
+
+    // Fallback: create textarea and use execCommand
+    if (!success) {
+      try {
         const textArea = document.createElement("textarea")
         textArea.value = text
-        textArea.style.position = "fixed"
-        textArea.style.left = "-999999px"
-        textArea.style.top = "-999999px"
+        // Prevent scrolling to bottom
+        textArea.style.cssText = "position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;boxShadow:none;background:transparent;"
         document.body.appendChild(textArea)
         textArea.focus()
         textArea.select()
-        document.execCommand('copy')
+
+        // Try execCommand
+        success = document.execCommand('copy')
         document.body.removeChild(textArea)
+      } catch (err) {
+        console.warn("execCommand fallback failed:", err)
       }
-      setCopiedPath(os)
-      setTimeout(() => setCopiedPath(null), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
-      // Still show feedback even if copy failed
-      setCopiedPath(os)
-      setTimeout(() => setCopiedPath(null), 2000)
+    }
+
+    // Show feedback
+    setCopiedPath(os)
+    setTimeout(() => setCopiedPath(null), 2000)
+
+    if (!success) {
+      console.error("Copy failed - try manually selecting and copying the text")
     }
   }
 

@@ -10,7 +10,9 @@ async function fetchStats(id: string) {
   // Get the host from headers to construct the API URL
   const headersList = await headers()
   const host = headersList.get('host') || 'localhost:3000'
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+  // Check x-forwarded-proto header for reverse proxy setups, default to http for local
+  const forwardedProto = headersList.get('x-forwarded-proto')
+  const protocol = forwardedProto || 'http'
 
   try {
     const response = await fetch(`${protocol}://${host}/api/stats/${id}`, {
@@ -28,7 +30,8 @@ async function fetchStats(id: string) {
 async function fetchConversations() {
   const headersList = await headers()
   const host = headersList.get('host') || 'localhost:3000'
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+  const forwardedProto = headersList.get('x-forwarded-proto')
+  const protocol = forwardedProto || 'http'
 
   try {
     const response = await fetch(`${protocol}://${host}/api/conversations`, {
