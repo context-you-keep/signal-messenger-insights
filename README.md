@@ -45,11 +45,19 @@ A secure, local-only tool for exploring your Signal Desktop message history. Dec
 
 ---
 
-## Quick Start (Upload Mode)
+## Quick Start
 
-Start the containers:
+Pull and run from GitHub Container Registry:
 
 ```bash
+docker run -p 3000:3000 ghcr.io/context-you-keep/signal-messenger-insights:latest
+```
+
+Or build locally:
+
+```bash
+git clone https://github.com/context-you-keep/signal-messenger-insights.git
+cd signal-messenger-insights
 docker compose up
 ```
 
