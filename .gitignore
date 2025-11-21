@@ -63,7 +63,11 @@ venv/
 # Sensitive/Private
 .mcp.json
 .private-journal/
-docs/
+
+# Docs - ignore markdown, allow images for README
+docs/*.md
+!docs/images/
+!docs/images/*.png
 
 # Dev/Debug scripts
 extract-signal-key.sh

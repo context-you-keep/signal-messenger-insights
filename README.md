@@ -1,56 +1,73 @@
 # Signal Archive Viewer
 
-A secure, local-only tool for exploring your **Signal Desktop** message history.
-Decrypt, browse, search, and export your conversations — **without any data leaving your machine.**
+![Beta](https://img.shields.io/badge/status-beta-yellow)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-This tool never connects to Signal servers, never sends analytics, and never uploads files.
-Everything runs privately on **localhost** in a Docker container that you control.
-
----
-
-## ⭐ Features
-
-- 🔐 **Local-only, privacy-first** — all decryption happens on your machine
-- 📁 **Two ways to load your Signal data**
-  - Upload `config.json` + `db.sqlite` via the browser
-  - **OR** mount your Signal Desktop directory read-only
-- 💬 **Full conversation viewer**
-- 🔎 **Search across messages**
-- 📎 **View and export attachments**
-- 📤 **Export conversations** (Markdown, HTML, JSON — coming soon)
-- 🧠 **Future support for local or API-based LLM insights** (summaries, topic extraction, etc.)
+A secure, local-only tool for exploring your Signal Desktop message history. Decrypt, browse, search, and export conversations—without any data leaving your machine.
 
 ---
 
-## 🚀 Quick Start (Upload Mode)
+## Screenshots
 
-This is the simplest way to run the viewer.
-No volume mounts — just start the containers and upload your files.
+![Landing page](docs/images/landing.png)
+![Chat view](docs/images/chat.png)
+![Stats view](docs/images/stats.png)
+
+---
+
+## Platform Support
+
+| Platform | Status |
+|----------|--------|
+| Linux | Tested |
+| macOS | Untested |
+| Windows | Untested |
+
+---
+
+## Roadmap
+
+- macOS testing and validation
+- Windows testing and validation
+- Updated conversation statistics
+
+---
+
+## Features
+
+- **Local-only decryption** — all processing happens on your machine
+- **Two data loading methods** — upload files via browser or mount Signal directory read-only
+- **Conversation browser** — view messages with timestamps and pagination
+- **Full-text search** — find messages by keyword
+- **Attachment viewer** — view and export media files
+- **Export options** — Markdown, HTML, JSON (coming soon)
+- **LLM integration** — summaries, topic extraction (planned)
+
+---
+
+## Quick Start (Upload Mode)
+
+Start the containers:
 
 ```bash
 docker compose up
 ```
 
-Then open:
+Open `http://localhost:3000` and upload:
 
-```
-http://localhost:3000
-```
+- `config.json`
+- `db.sqlite` (from `sql/` directory in your Signal profile)
 
-The viewer consists of two services:
-- **Frontend** (Next.js) on port 3000 - User interface
-- **Backend** (FastAPI) on port 8000 - API and database decryption
+The app decrypts your database in-memory and displays your conversations. No data writes to disk unless you export intentionally.
 
-You will be prompted to upload:
+### Services
 
-* Your `config.json`
-* Your encrypted `db.sqlite` (from the `sql/` directory in your Signal profile)
-
-The app decrypts the database **in-memory**, loads your conversations, and never writes data to disk unless you export intentionally.
+- **Frontend** (Next.js) — port 3000
+- **Backend** (FastAPI) — port 8000
 
 ---
 
-## 🧠 Where to find your Signal files
+## Finding Your Signal Files
 
 ### Linux
 
@@ -70,28 +87,26 @@ The app decrypts the database **in-memory**, loads your conversations, and never
 %AppData%\Signal\
 ```
 
-You will need:
+### Required Files
 
-* `config.json` - **See important note below about encrypted keys**
-* `sql/db.sqlite`, `db.sqlite-wal`, `db.sqlite-shm` (upload only `db.sqlite` — other two are optional)
+- `config.json` (see note below about encrypted keys)
+- `sql/db.sqlite` (upload only this file; `db.sqlite-wal` and `db.sqlite-shm` are optional)
 
-### ⚠️ Important: Encrypted Key vs Plain Key
+### Encrypted Keys
 
-Signal Desktop stores the database encryption key in two possible ways:
+Signal Desktop stores database encryption keys two ways:
 
-1. **Plain key** (older Signal versions): `config.json` contains a `"key"` field with the actual encryption key
-2. **Encrypted key** (newer Signal versions): `config.json` contains an `"encryptedKey"` field that's encrypted using your system keyring
+1. **Plain key** (older versions): `config.json` contains a `"key"` field with the actual key
+2. **Encrypted key** (newer versions): `config.json` contains `"encryptedKey"` encrypted via system keyring
 
-**If your config.json has an `encryptedKey` field**, the Docker container cannot decrypt it because it doesn't have access to your system keyring.
-
-**Solution**: Extract the plain key on your Signal Desktop system, then create a simple config.json:
+Docker cannot access your system keyring. If your `config.json` has an `encryptedKey` field, extract the plain key first:
 
 ```bash
-# On your Signal Desktop system, run:
+# On your Signal Desktop system:
 ./extract-signal-key.sh
 ```
 
-This will output your decrypted database key. Then create a new `config.json`:
+Create a new `config.json` with the extracted key:
 
 ```json
 {
@@ -99,17 +114,15 @@ This will output your decrypted database key. Then create a new `config.json`:
 }
 ```
 
-Upload this simplified `config.json` along with your `db.sqlite`.
-
-**Security Note**: The extracted key can decrypt your entire Signal history. Keep it secure and never share it.
+**Security note:** This key decrypts your entire Signal history. Keep it secure.
 
 ---
 
-## 🔧 Advanced: Volume Mount Mode
+## Volume Mount Mode
 
-For power users who don't want to upload files manually, you can mount your Signal directory.
+Mount your Signal directory for automatic file detection:
 
-Edit `docker-compose.yml` and uncomment the volumes section for your OS:
+Edit `docker-compose.yml` and uncomment the volumes section:
 
 ```yaml
 volumes:
@@ -122,71 +135,53 @@ Then run:
 docker compose up
 ```
 
-Now open:
-
-```
-http://localhost:3000
-```
-
-The app will auto-detect:
-
-* `/signal/config.json`
-* `/signal/sql/db.sqlite`
-
-This mode is ideal for frequent use or automation.
+The app auto-detects `/signal/config.json` and `/signal/sql/db.sqlite`.
 
 ---
 
-## 🕹 How to Use the App
+## Usage
 
 1. Launch the viewer (upload or volume mode)
-2. Select or confirm your Signal data source
-3. Browse your conversations in the sidebar
-4. Click any conversation to view:
-
-   * Messages (with pagination)
-   * Timestamps
-   * Attachments
-5. Use the search bar to find messages by keyword
-6. Export conversations as needed (HTML/Markdown/JSON)
+2. Select your Signal data source
+3. Browse conversations in the sidebar
+4. Click any conversation to view messages, timestamps, and attachments
+5. Search messages by keyword
+6. Export conversations as needed
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy
 
-Your privacy is the point of this project.
+This project prioritizes your privacy:
 
-* The app runs entirely on `localhost`
-* No internet access is required
-* No telemetry, analytics, or tracking
-* Your Signal files never leave your machine
-* Decrypted SQLite DB is kept **in-memory** or in a secure temporary location
-* Mounted directories are read-only
+- Runs entirely on localhost
+- Requires no internet access
+- Contains no telemetry or analytics
+- Keeps decrypted data in-memory
+- Mounts directories read-only
 
-You control the container.
-You control your data.
+You control the container. You control your data.
 
 ---
 
-## 🛠 Development
+## Development
 
 ### Local Development (without Docker)
 
 **Frontend:**
+
 ```bash
 cd frontend
 npm install --legacy-peer-deps
 npm run dev
 ```
 
-Then open `http://localhost:3001` (dev mode with hot reload)
-
-**Note:** Development runs on port **3001**, production (Docker) runs on port **3000**. This allows running both simultaneously if needed.
+Development runs on port 3001; production (Docker) runs on port 3000.
 
 ### Building with Docker
 
 ```bash
-git clone https://github.com/yourname/signal-archive-viewer.git
+git clone https://github.com/0xsalt/signal-archive-viewer.git
 cd signal-archive-viewer
 docker compose build
 docker compose up
@@ -194,33 +189,18 @@ docker compose up
 
 ---
 
-## 🗺 Roadmap
+## Disclaimer
 
-* Conversation exports (Markdown / HTML / JSON)
-* Attachment extraction tools
-* LLM-assisted insights:
-
-  * Conversation summaries
-  * Topic clustering
-  * Highlighting significant messages
-  * Relationship mappings
-* Optional offline-only mode using local LLMs (Ollama)
+This tool is designed for your own Signal Desktop data. Do not use it on systems or data you do not own or have explicit permission to analyze.
 
 ---
 
-## ⚖️ Disclaimer
-
-This tool is designed for **your own Signal Desktop data**.
-Do not use it on systems or data you do not own or have explicit permission to analyze.
-
----
-
-## ❤️ Contributing
+## Contributing
 
 Bug reports, feature requests, and PRs welcome.
 
 ---
 
-## 📄 License
+## License
 
 MIT
