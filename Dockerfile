@@ -1,14 +1,31 @@
-# Multi-stage Dockerfile for Signal Archive Viewer
-# Stage 1: Build frontend (Next.js)
-FROM node:22-alpine AS frontend-builder
+# Dockerfile for Signal Archive Viewer - Next.js Monolith
+# Single service architecture following Vercel pattern
+# Using Debian slim - matches host environment (Debian 12 Bookworm)
 
-WORKDIR /app/frontend
+FROM node:22-slim
+
+WORKDIR /app
+
+# Install build dependencies for native modules (SQLCipher)
+# @journeyapps/sqlcipher requires libssl1.1 (OpenSSL 1.1) which is from Debian 11
+# Add bullseye repository temporarily to install libssl1.1
+RUN echo "deb http://deb.debian.org/debian bullseye main" > /etc/apt/sources.list.d/bullseye.list \
+    && apt-get update \
+    && apt-get install -y \
+        python3 \
+        make \
+        g++ \
+        libsqlite3-dev \
+        libssl-dev \
+        libssl1.1 \
+    && rm /etc/apt/sources.list.d/bullseye.list \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (use legacy-peer-deps due to React 19 compatibility)
+RUN npm ci --legacy-peer-deps
 
 # Copy frontend source
 COPY frontend/ ./
@@ -16,53 +33,11 @@ COPY frontend/ ./
 # Build Next.js app
 RUN npm run build
 
-# Stage 2: Python backend with built frontend
-FROM python:3.12-slim
-
-WORKDIR /app
-
-# Install system dependencies for SQLCipher and keychain access
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    libsqlcipher-dev \
-    libsecret-tools \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy backend requirements
-COPY backend/pyproject.toml ./backend/
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -e ./backend
-
-# Copy backend application
-COPY backend/ ./backend/
-
-# Copy built Next.js app from previous stage
-COPY --from=frontend-builder /app/frontend/.next ./frontend/.next
-COPY --from=frontend-builder /app/frontend/public ./frontend/public
-COPY --from=frontend-builder /app/frontend/package.json ./frontend/package.json
-COPY --from=frontend-builder /app/frontend/node_modules ./frontend/node_modules
-
-# Create directory for temporary files
-RUN mkdir -p /tmp/signal_archive && chmod 1777 /tmp/signal_archive
-
-# Create non-root user
-RUN useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
 # Expose port
-EXPOSE 8000
+EXPOSE 3000
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+# Set production environment
+ENV NODE_ENV=production
 
-# Set working directory to backend for proper imports
-WORKDIR /app/backend
-
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start Next.js in production mode
+CMD ["npm", "start"]

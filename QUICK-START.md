@@ -45,9 +45,7 @@
    http://localhost:3000
    ```
 
-   The viewer runs two services:
-   - Frontend (Next.js) on port 3000
-   - Backend (FastAPI) on port 8000
+   The viewer is a single Next.js service with built-in API routes.
 
 3. **Upload files**:
    - Upload `signal-config-plain.json` as config.json
