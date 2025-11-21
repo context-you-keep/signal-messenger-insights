@@ -59,3 +59,18 @@ config.json
 coverage/
 venv/
 .venv/
+
+# Sensitive/Private
+.mcp.json
+.private-journal/
+docs/
+
+# Dev/Debug scripts
+extract-signal-key.sh
+inspect_schema.py
+inspect_triggers.py
+test_schema.py
+
+# Old/backup directories
+frontend.backup/
+backend/
