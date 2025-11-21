@@ -1,4 +1,4 @@
-# Signal Archive Viewer
+# Signal Messenger Insights
 
 ![Beta](https://img.shields.io/badge/status-beta-yellow)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
