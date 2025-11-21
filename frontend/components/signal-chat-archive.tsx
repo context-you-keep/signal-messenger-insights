@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ConversationList } from "./conversation-list"
 import { MessageView } from "./message-view"
 import { ConversationHeader } from "./conversation-header"
@@ -26,131 +26,106 @@ export type Message = {
   avatar?: string
 }
 
-// Sample data
-const conversations: Conversation[] = [
-  {
-    id: "1",
-    name: "Alice Johnson",
-    lastMessage: "See you tomorrow!",
-    timestamp: "2:45 PM",
-    avatar: "/diverse-woman-portrait.png",
-    unread: 2,
-  },
-  {
-    id: "2",
-    name: "Bob Smith",
-    lastMessage: "Thanks for the help",
-    timestamp: "1:30 PM",
-    avatar: "/man.jpg",
-  },
-  {
-    id: "3",
-    name: "Team Updates",
-    lastMessage: "Meeting at 3 PM",
-    timestamp: "Yesterday",
-    avatar: "/diverse-professional-team.png",
-    isGroup: true,
-    unread: 5,
-  },
-  {
-    id: "4",
-    name: "Sarah Williams",
-    lastMessage: "Got the documents",
-    timestamp: "Monday",
-    avatar: "/woman-2.jpg",
-  },
-  {
-    id: "5",
-    name: "Design Team",
-    lastMessage: "New mockups ready",
-    timestamp: "Sunday",
-    avatar: "/abstract-design-elements.png",
-    isGroup: true,
-  },
-]
-
-const messages: Record<string, Message[]> = {
-  "1": [
-    {
-      id: "1",
-      content: "Hey! How are you doing?",
-      timestamp: "2:30 PM",
-      sender: "Alice Johnson",
-      isSent: false,
-      avatar: "/diverse-woman-portrait.png",
-    },
-    {
-      id: "2",
-      content: "I'm doing great, thanks! How about you?",
-      timestamp: "2:32 PM",
-      sender: "You",
-      isSent: true,
-      status: "read",
-    },
-    {
-      id: "3",
-      content: "Pretty good! Are we still on for tomorrow?",
-      timestamp: "2:35 PM",
-      sender: "Alice Johnson",
-      isSent: false,
-      avatar: "/diverse-woman-portrait.png",
-    },
-    {
-      id: "4",
-      content: "Looking forward to it.",
-      timestamp: "2:40 PM",
-      sender: "You",
-      isSent: true,
-      status: "read",
-    },
-    {
-      id: "5",
-      content: "See you tomorrow!",
-      timestamp: "2:45 PM",
-      sender: "Alice Johnson",
-      isSent: false,
-      avatar: "/diverse-woman-portrait.png",
-    },
-  ],
-  "2": [
-    {
-      id: "1",
-      content: "Could you help me with the project setup?",
-      timestamp: "1:15 PM",
-      sender: "Bob Smith",
-      isSent: false,
-      avatar: "/man.jpg",
-    },
-    {
-      id: "2",
-      content: "What do you need help with?",
-      timestamp: "1:20 PM",
-      sender: "You",
-      isSent: true,
-      status: "delivered",
-    },
-    {
-      id: "3",
-      content: "Thanks for the help",
-      timestamp: "1:30 PM",
-      sender: "Bob Smith",
-      isSent: false,
-      avatar: "/man.jpg",
-    },
-  ],
-}
+// Sample data removed - now fetched from API
 
 export function SignalChatArchive() {
-  const [selectedConversation, setSelectedConversation] = useState<string>("1")
-  const activeConversation = conversations.find((c) => c.id === selectedConversation)
-  const activeMessages = messages[selectedConversation] || []
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [messages, setMessages] = useState<Record<string, Message[]>>({})
+  const [messageTotals, setMessageTotals] = useState<Record<string, number>>({})
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [loadingMessages, setLoadingMessages] = useState(false)
+
+  // Load conversations on mount
+  useEffect(() => {
+    async function loadConversations() {
+      try {
+        const response = await fetch("/api/conversations")
+        if (!response.ok) {
+          throw new Error("Failed to load conversations")
+        }
+        const data = await response.json()
+        // Ensure data is an array
+        const conversationsArray = Array.isArray(data) ? data : []
+        setConversations(conversationsArray)
+
+        // Select first conversation by default
+        if (data.length > 0) {
+          setSelectedConversation(data[0].id)
+        }
+      } catch (error) {
+        console.error("Error loading conversations:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadConversations()
+  }, [])
+
+  // Load messages when conversation is selected
+  useEffect(() => {
+    if (!selectedConversation) return
+
+    // If messages already loaded for this conversation, skip
+    if (messages[selectedConversation]) return
+
+    async function loadMessages() {
+      if (!selectedConversation) return
+
+      try {
+        setLoadingMessages(true)
+        setError(null)
+        const response = await fetch(`/api/messages/${selectedConversation}?pageSize=100`)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          throw new Error(errorData.error || "Failed to load messages")
+        }
+        const data = await response.json()
+
+        setMessages((prev) => ({
+          ...prev,
+          [selectedConversation as string]: data.messages,
+        }))
+
+        setMessageTotals((prev) => ({
+          ...prev,
+          [selectedConversation as string]: data.total,
+        }))
+      } catch (error) {
+        console.error("Error loading messages:", error)
+        setError(error instanceof Error ? error.message : "Failed to load messages")
+      } finally {
+        setLoadingMessages(false)
+      }
+    }
+
+    loadMessages()
+  }, [selectedConversation, messages])
+
+  const activeConversation = Array.isArray(conversations)
+    ? conversations.find((c) => c.id === selectedConversation)
+    : undefined
+  const activeMessages = selectedConversation ? messages[selectedConversation] || [] : []
+  const activeMessageTotal = selectedConversation ? messageTotals[selectedConversation] || 0 : 0
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--signal-bg-primary)] text-[var(--signal-text-primary)]">
+        <div className="text-center">
+          <div className="text-lg">Loading conversations...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-[var(--signal-bg-primary)] dark">
       {/* Conversation List Sidebar */}
       <ConversationList
         conversations={conversations}
-        selectedId={selectedConversation}
+        selectedId={selectedConversation || ""}
         onSelect={setSelectedConversation}
       />
 
@@ -159,12 +134,24 @@ export function SignalChatArchive() {
         {activeConversation && (
           <>
             <ConversationHeader conversation={activeConversation} />
-            <MessageView messages={activeMessages} />
+            {error && (
+              <div className="flex items-center justify-center p-4 bg-red-500/10 text-red-500 border-b border-red-500/20">
+                <div className="text-sm">
+                  <strong>Error:</strong> {error}
+                </div>
+              </div>
+            )}
+            {loadingMessages && !error && (
+              <div className="flex items-center justify-center p-8 text-[var(--signal-text-secondary)]">
+                <div className="text-sm">Loading messages...</div>
+              </div>
+            )}
+            {!loadingMessages && !error && <MessageView messages={activeMessages} />}
           </>
         )}
       </div>
 
-      {activeConversation && <ChatStatistics conversation={activeConversation} messages={activeMessages} />}
+      {activeConversation && <ChatStatistics conversation={activeConversation} messages={activeMessages} totalMessages={activeMessageTotal} />}
     </div>
   )
 }

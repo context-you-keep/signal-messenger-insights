@@ -7,10 +7,11 @@ import type { Conversation, Message } from "./signal-chat-archive"
 interface ChatStatisticsProps {
   conversation: Conversation
   messages: Message[]
+  totalMessages?: number
 }
 
-export function ChatStatistics({ conversation, messages }: ChatStatisticsProps) {
-  const totalMessages = messages.length
+export function ChatStatistics({ conversation, messages, totalMessages: totalMessagesProp }: ChatStatisticsProps) {
+  const totalMessages = totalMessagesProp || messages.length
   const sentMessages = messages.filter((m) => m.isSent).length
   const receivedMessages = messages.filter((m) => !m.isSent).length
 
