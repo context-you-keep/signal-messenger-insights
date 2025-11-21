@@ -33,11 +33,12 @@ COPY frontend/ ./
 # Build Next.js app
 RUN npm run build
 
-# Expose port
-EXPOSE 3000
+# Expose port (using 8080 to avoid privileged port issues in containers)
+EXPOSE 8080
 
 # Set production environment
 ENV NODE_ENV=production
+ENV PORT=8080
 
 # Start Next.js in production mode
 CMD ["npm", "start"]
