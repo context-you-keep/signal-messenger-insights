@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const configFile = formData.get('config') as File | null;
     const dbFile = formData.get('database') as File | null;
+    const extractedKey = formData.get('extractedKey') as string | null;
 
     if (!configFile || !dbFile) {
       return NextResponse.json(
@@ -65,8 +66,9 @@ export async function POST(request: NextRequest) {
     const db = new SignalDatabase();
 
     // Load config and extract encryption key
+    // If extractedKey is provided (user pasted from clipboard), it takes priority
     const configContent = configBuffer.toString('utf-8');
-    await db.loadConfig(configContent);
+    await db.loadConfig(configContent, extractedKey || undefined);
 
     // Decrypt and open database
     await db.openDatabase(dbPath);

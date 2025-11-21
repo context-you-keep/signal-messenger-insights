@@ -7,10 +7,12 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 build: ## Build the Docker image
-	docker-compose build
+	docker compose build
 
 run: ## Run the application in production mode
-	docker-compose up
+	docker compose up
+
+start: run ## Alias for run
 
 dev: ## Run in development mode (frontend + backend separately)
 	@echo "Starting backend..."
@@ -19,10 +21,10 @@ dev: ## Run in development mode (frontend + backend separately)
 	cd frontend && pnpm dev
 
 stop: ## Stop running containers
-	docker-compose down
+	docker compose down
 
 clean: ## Clean up containers, images, and build artifacts
-	docker-compose down -v
+	docker compose down -v
 	docker rmi signal-archive-viewer_signal-archive-viewer || true
 	rm -rf backend/__pycache__ backend/**/__pycache__
 	rm -rf frontend/dist frontend/node_modules
