@@ -53,10 +53,36 @@ export class SignalDatabase {
 
   /**
    * Load encryption key from config.json content
+   * @param configContent - JSON string from config.json
+   * @param extractedKey - Optional pre-extracted hex key (from user paste, overrides config.json)
    */
-  async loadConfig(configContent: string): Promise<void> {
+  async loadConfig(configContent: string, extractedKey?: string): Promise<void> {
     try {
       const config: SignalConfig = JSON.parse(configContent);
+
+      // If user provided an extracted key (pasted from clipboard), use it
+      if (extractedKey) {
+        const keyHex = extractedKey.trim();
+
+        // Validate hex format
+        if (!/^[0-9a-fA-F]+$/.test(keyHex)) {
+          throw new SignalDatabaseError(
+            `Invalid extracted key format: key must be hexadecimal (0-9, a-f). ` +
+            `Found invalid character. Current length: ${keyHex.length}`
+          );
+        }
+
+        // Validate length (should be 64 hex characters = 32 bytes)
+        if (keyHex.length !== 64) {
+          throw new SignalDatabaseError(
+            `Invalid extracted key length: expected 64 hex characters, got ${keyHex.length}`
+          );
+        }
+
+        this.encryptionKey = Buffer.from(keyHex, 'hex');
+        console.log('Successfully loaded encryption key from user-provided extracted key');
+        return;
+      }
 
       // Try plain key first (old format)
       if (config.key) {
@@ -400,9 +426,9 @@ export class SignalDatabase {
       throw new SignalDatabaseError('Database not open');
     }
 
+    // Count only outgoing/incoming messages (excludes system messages like call-history, profile-change, etc.)
     const query = `
       SELECT
-        COUNT(*) as total_messages,
         SUM(CASE WHEN type = 'outgoing' THEN 1 ELSE 0 END) as sent_messages,
         SUM(CASE WHEN type = 'incoming' THEN 1 ELSE 0 END) as received_messages,
         MIN(sent_at) as first_message_date,
@@ -418,20 +444,21 @@ export class SignalDatabase {
       });
     });
 
-    if (!result || result.total_messages === 0) {
+    const sentMessages = result?.sent_messages || 0;
+    const receivedMessages = result?.received_messages || 0;
+    const totalMessages = sentMessages + receivedMessages;
+
+    if (totalMessages === 0) {
       return null;
     }
 
-    const talkMorePercentage =
-      result.total_messages > 0
-        ? Math.round((result.sent_messages / result.total_messages) * 100)
-        : 0;
+    const talkMorePercentage = Math.round((sentMessages / totalMessages) * 100);
 
     return {
       conversationId,
-      totalMessages: result.total_messages,
-      sentMessages: result.sent_messages,
-      receivedMessages: result.received_messages,
+      totalMessages,
+      sentMessages,
+      receivedMessages,
       firstMessageDate: result.first_message_date
         ? new Date(result.first_message_date)
         : null,

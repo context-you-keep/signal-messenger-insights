@@ -2,6 +2,46 @@ import { ArrowLeft, MessageSquare, TrendingUp, Clock, Calendar } from "lucide-re
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { headers } from "next/headers"
+
+export const dynamic = 'force-dynamic'
+
+async function fetchStats(id: string) {
+  // Get the host from headers to construct the API URL
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+
+  try {
+    const response = await fetch(`${protocol}://${host}/api/stats/${id}`, {
+      cache: 'no-store',
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.error('Failed to fetch stats:', error)
+  }
+  return null
+}
+
+async function fetchConversations() {
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+
+  try {
+    const response = await fetch(`${protocol}://${host}/api/conversations`, {
+      cache: 'no-store',
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.error('Failed to fetch conversations:', error)
+  }
+  return []
+}
 
 export default async function StatsPage({
   params,
@@ -10,13 +50,70 @@ export default async function StatsPage({
 }) {
   const { id } = await params
 
-  // Placeholder data - you'll replace this with actual conversation data
-  const conversationName = "Sarah Chen"
-  const totalMessages = 1247
-  const sentMessages = 623
-  const receivedMessages = 624
-  const firstMessageDate = "Jan 15, 2024 10:30 AM"
-  const lastMessageDate = "Jan 20, 2024 2:45 PM"
+  // Fetch stats via API (shares global DB state with API routes)
+  const [stats, conversations] = await Promise.all([
+    fetchStats(id),
+    fetchConversations(),
+  ])
+
+  // Find the conversation name
+  const conversation = conversations.find((c: any) => c.id === id)
+  const conversationName = conversation?.name || "Unknown"
+
+  // Use real data or fallbacks (total = sent + received)
+  const sentMessages = stats?.sentMessages ?? 0
+  const receivedMessages = stats?.receivedMessages ?? 0
+  const totalMessages = stats?.totalMessages ?? (sentMessages + receivedMessages)
+
+  // Format dates
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return "N/A"
+    try {
+      const d = typeof date === 'string' ? new Date(date) : date
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      })
+    } catch {
+      return "N/A"
+    }
+  }
+
+  const firstMessageDate = formatDate(stats?.firstMessageDate)
+  const lastMessageDate = formatDate(stats?.lastMessageDate)
+
+  // Calculate duration and average
+  let durationText = "N/A"
+  let avgPerDay = "N/A"
+
+  if (stats?.firstMessageDate && stats?.lastMessageDate) {
+    const first = new Date(stats.firstMessageDate)
+    const last = new Date(stats.lastMessageDate)
+    const diffMs = last.getTime() - first.getTime()
+    const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+
+    if (diffDays === 1) {
+      durationText = "1 day"
+    } else if (diffDays < 30) {
+      durationText = `${diffDays} days`
+    } else if (diffDays < 365) {
+      const months = Math.floor(diffDays / 30)
+      durationText = months === 1 ? "1 month" : `${months} months`
+    } else {
+      const years = Math.floor(diffDays / 365)
+      const remainingMonths = Math.floor((diffDays % 365) / 30)
+      durationText = years === 1 ? "1 year" : `${years} years`
+      if (remainingMonths > 0) {
+        durationText += `, ${remainingMonths} months`
+      }
+    }
+
+    const avg = Math.round(totalMessages / diffDays)
+    avgPerDay = `${avg} messages`
+  }
 
   return (
     <div className="min-h-screen bg-[var(--signal-bg-primary)] text-[var(--signal-text-primary)]">
@@ -55,7 +152,7 @@ export default async function StatsPage({
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Total messages</p>
-                <p className="text-3xl font-bold text-[var(--signal-text-primary)]">{totalMessages}</p>
+                <p className="text-3xl font-bold text-[var(--signal-text-primary)]">{totalMessages.toLocaleString()}</p>
               </div>
 
               <Separator className="bg-[var(--signal-divider)]" />
@@ -63,11 +160,11 @@ export default async function StatsPage({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">From you</p>
-                  <p className="text-2xl font-semibold text-[var(--signal-blue)]">{sentMessages}</p>
+                  <p className="text-2xl font-semibold text-[var(--signal-blue)]">{sentMessages.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">From them</p>
-                  <p className="text-2xl font-semibold text-[var(--signal-text-primary)]">{receivedMessages}</p>
+                  <p className="text-2xl font-semibold text-[var(--signal-text-primary)]">{receivedMessages.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -75,15 +172,21 @@ export default async function StatsPage({
 
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-2">Balance</p>
-                <div className="flex gap-2">
-                  <div
-                    className="h-2 rounded-full bg-[var(--signal-blue)]"
-                    style={{ width: `${(sentMessages / totalMessages) * 100}%` }}
-                  />
-                  <div
-                    className="h-2 rounded-full bg-[var(--signal-text-tertiary)]"
-                    style={{ width: `${(receivedMessages / totalMessages) * 100}%` }}
-                  />
+                <div className="flex gap-1">
+                  {totalMessages > 0 ? (
+                    <>
+                      <div
+                        className="h-2 rounded-full bg-[var(--signal-blue)]"
+                        style={{ width: `${(sentMessages / totalMessages) * 100}%` }}
+                      />
+                      <div
+                        className="h-2 rounded-full bg-[var(--signal-text-tertiary)]"
+                        style={{ width: `${(receivedMessages / totalMessages) * 100}%` }}
+                      />
+                    </>
+                  ) : (
+                    <div className="h-2 w-full rounded-full bg-[var(--signal-divider)]" />
+                  )}
                 </div>
               </div>
             </div>
@@ -115,14 +218,14 @@ export default async function StatsPage({
 
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Duration</p>
-                <p className="text-lg font-medium text-[var(--signal-text-primary)]">5 days</p>
+                <p className="text-lg font-medium text-[var(--signal-text-primary)]">{durationText}</p>
               </div>
 
               <Separator className="bg-[var(--signal-divider)]" />
 
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Average per day</p>
-                <p className="text-lg font-medium text-[var(--signal-blue)]">249 messages</p>
+                <p className="text-lg font-medium text-[var(--signal-blue)]">{avgPerDay}</p>
               </div>
             </div>
           </Card>
@@ -139,28 +242,28 @@ export default async function StatsPage({
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Most active time</p>
-                <p className="text-lg font-medium text-[var(--signal-text-primary)]">2:00 PM - 5:00 PM</p>
+                <p className="text-sm text-[var(--signal-text-secondary)]">Coming soon...</p>
               </div>
 
               <Separator className="bg-[var(--signal-divider)]" />
 
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Most active day</p>
-                <p className="text-lg font-medium text-[var(--signal-text-primary)]">Wednesday</p>
+                <p className="text-sm text-[var(--signal-text-secondary)]">Coming soon...</p>
               </div>
 
               <Separator className="bg-[var(--signal-divider)]" />
 
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Average response time</p>
-                <p className="text-lg font-medium text-[var(--signal-blue)]">3 minutes</p>
+                <p className="text-sm text-[var(--signal-text-secondary)]">Coming soon...</p>
               </div>
 
               <Separator className="bg-[var(--signal-divider)]" />
 
               <div>
                 <p className="text-sm text-[var(--signal-text-tertiary)] mb-1">Longest conversation</p>
-                <p className="text-lg font-medium text-[var(--signal-text-primary)]">47 messages</p>
+                <p className="text-sm text-[var(--signal-text-secondary)]">Coming soon...</p>
               </div>
             </div>
           </Card>

@@ -1,8 +1,20 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { MessageSquare, Sparkles, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import type { Conversation, Message } from "./signal-chat-archive"
+
+interface ConversationStats {
+  totalMessages: number
+  sentMessages: number
+  receivedMessages: number
+  firstMessageDate: string | null
+  lastMessageDate: string | null
+  talkMorePercentage: number
+}
 
 interface ChatStatisticsProps {
   conversation: Conversation
@@ -11,17 +23,50 @@ interface ChatStatisticsProps {
 }
 
 export function ChatStatistics({ conversation, messages, totalMessages: totalMessagesProp }: ChatStatisticsProps) {
-  const totalMessages = totalMessagesProp || messages.length
-  const sentMessages = messages.filter((m) => m.isSent).length
-  const receivedMessages = messages.filter((m) => !m.isSent).length
+  const [stats, setStats] = useState<ConversationStats | null>(null)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch(`/api/stats/${conversation.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          setStats(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch stats:", error)
+      }
+    }
+    fetchStats()
+  }, [conversation.id])
+
+  // Use stats from API if available, otherwise fall back to counting loaded messages
+  const sentMessages = stats?.sentMessages ?? messages.filter((m) => m.isSent).length
+  const receivedMessages = stats?.receivedMessages ?? messages.filter((m) => !m.isSent).length
+  const totalMessages = stats?.totalMessages ?? (sentMessages + receivedMessages)
 
   // Calculate who talks more
-  const talkMorePercentage = totalMessages > 0 ? Math.round((sentMessages / totalMessages) * 100) : 50
+  const talkMorePercentage = stats?.talkMorePercentage ?? (totalMessages > 0 ? Math.round((sentMessages / totalMessages) * 100) : 50)
   const whoTalksMore = sentMessages > receivedMessages ? "You" : sentMessages < receivedMessages ? "Them" : "Equal"
 
-  // Get first and last message timestamps (using placeholder values for now)
-  const firstMessageDate = messages.length > 0 ? "Jan 15, 2024 10:30 AM" : "N/A"
-  const lastMessageDate = messages.length > 0 ? "Jan 20, 2024 2:45 PM" : "N/A"
+  // Format dates
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "N/A"
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      })
+    } catch {
+      return "N/A"
+    }
+  }
+
+  const firstMessageDate = stats?.firstMessageDate ? formatDate(stats.firstMessageDate) : (messages.length > 0 ? "Loading..." : "N/A")
+  const lastMessageDate = stats?.lastMessageDate ? formatDate(stats.lastMessageDate) : (messages.length > 0 ? "Loading..." : "N/A")
 
   return (
     <div className="flex w-80 flex-col border-l border-[var(--signal-divider)] bg-[var(--signal-bg-primary)]">

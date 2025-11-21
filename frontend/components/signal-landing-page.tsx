@@ -21,17 +21,21 @@ import {
   Loader2,
   Copy,
   Check,
+  HelpCircle,
 } from "lucide-react"
+import { KeyExtractionHelper } from "@/components/key-extraction-helper"
 
 export function SignalLandingPage() {
   const router = useRouter()
   const [configFile, setConfigFile] = useState<File | null>(null)
   const [dbFile, setDbFile] = useState<File | null>(null)
   const [isEncrypted, setIsEncrypted] = useState(false)
+  const [encryptedKeyValue, setEncryptedKeyValue] = useState("")
   const [extractedKey, setExtractedKey] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [dragOver, setDragOver] = useState<"config" | "db" | null>(null)
   const [copiedPath, setCopiedPath] = useState<"linux" | "macos" | "windows" | null>(null)
+  const [showKeyHelper, setShowKeyHelper] = useState(false)
 
   const handleConfigUpload = async (file: File) => {
     setConfigFile(file)
@@ -40,7 +44,11 @@ export function SignalLandingPage() {
     const text = await file.text()
     try {
       const config = JSON.parse(text)
-      setIsEncrypted(!!config.encryptedKey)
+      const encrypted = !!config.encryptedKey
+      setIsEncrypted(encrypted)
+      if (encrypted) {
+        setEncryptedKeyValue(config.encryptedKey)
+      }
     } catch (e) {
       console.error("Error parsing config:", e)
     }
@@ -63,59 +71,32 @@ export function SignalLandingPage() {
     }
   }
 
-  const downloadScript = () => {
-    const script = `#!/usr/bin/env python3
-"""
-Signal Desktop Encryption Key Extractor
-Extracts the database encryption key from your system keyring
-"""
-
-import sys
-import json
-
-def extract_key():
-    """Extract Signal encryption key from system keyring"""
-    try:
-        if sys.platform == 'darwin':  # macOS
-            import keyring
-            key = keyring.get_password("Signal Safe Storage", "Signal")
-        elif sys.platform == 'linux':
-            import secretstorage
-            connection = secretstorage.dbus_init()
-            collection = secretstorage.get_default_collection(connection)
-            items = collection.search_items({"application": "Signal"})
-            key = next(items).get_secret().decode('utf-8')
-        else:
-            print("Unsupported platform", file=sys.stderr)
-            sys.exit(1)
-        
-        print(key)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == '__main__':
-    extract_key()
-`
-
-    const blob = new Blob([script], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "extract-signal-key.py"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
 
   const copyToClipboard = async (text: string, os: "linux" | "macos" | "windows") => {
     try {
-      await navigator.clipboard.writeText(text)
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement("textarea")
+        textArea.value = text
+        textArea.style.position = "fixed"
+        textArea.style.left = "-999999px"
+        textArea.style.top = "-999999px"
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
       setCopiedPath(os)
       setTimeout(() => setCopiedPath(null), 2000)
     } catch (err) {
       console.error("Failed to copy:", err)
+      // Still show feedback even if copy failed
+      setCopiedPath(os)
+      setTimeout(() => setCopiedPath(null), 2000)
     }
   }
 
@@ -129,6 +110,11 @@ if __name__ == '__main__':
       const formData = new FormData()
       formData.append("config", configFile)
       formData.append("database", dbFile)
+
+      // Include extracted key if user pasted one (for encrypted configs)
+      if (extractedKey.trim()) {
+        formData.append("extractedKey", extractedKey.trim())
+      }
 
       // Call upload API
       const response = await fetch("/api/upload", {
@@ -160,7 +146,7 @@ if __name__ == '__main__':
       <Card className="w-full max-w-2xl border-signal-border/20 bg-signal-surface/95 backdrop-blur">
         <CardHeader className="space-y-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl text-foreground">Signal Archive Viewer</CardTitle>
+            <CardTitle className="text-2xl text-foreground">Signal Messenger Insights</CardTitle>
           </div>
           <CardDescription className="text-base text-muted-foreground">
             Browse your Signal message history. All processing happens locally - your data never leaves your machine.
@@ -251,6 +237,15 @@ if __name__ == '__main__':
                     key.
                   </p>
 
+                  <Button
+                    onClick={() => setShowKeyHelper(true)}
+                    variant="outline"
+                    className="mb-4 border-signal-blue/30 hover:bg-signal-blue/10"
+                  >
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Need Help Extracting Your Key?
+                  </Button>
+
                   <div className="bg-signal-surface rounded-lg p-4 mb-4 border border-emerald-500/20">
                     <div className="flex items-center gap-2 mb-2 text-emerald-400">
                       <Shield className="h-4 w-4" />
@@ -275,47 +270,71 @@ if __name__ == '__main__':
                   <div className="space-y-4">
                     <h5 className="font-semibold text-foreground">One-Time Setup (takes 30 seconds)</h5>
 
-                    {/* Step 1 */}
+                    {/* Step 1: Run command */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-signal-blue text-white text-xs">
                           1
                         </div>
-                        Download extraction tool
+                        Run this command on your computer
                       </div>
-                      <Button
-                        onClick={downloadScript}
-                        variant="outline"
-                        className="w-full justify-between border-signal-border/40 hover:bg-signal-blue/10 bg-transparent"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Download className="h-4 w-4" />
-                          extract-signal-key.py
-                        </span>
-                        <span className="text-xs text-muted-foreground">2KB · Python script · View source</span>
-                      </Button>
+
+                      {/* Linux Command */}
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Linux:</div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 bg-signal-bg rounded-lg p-3 font-mono text-xs text-muted-foreground border border-signal-border/40 overflow-x-auto">
+                            bash &lt;(curl -sL {typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/scripts/extract-signal-key.sh) | xclip -selection clipboard
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(`bash <(curl -sL ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/scripts/extract-signal-key.sh) | xclip -selection clipboard`, "linux")}
+                            className="h-auto px-3 hover:bg-signal-blue/10"
+                          >
+                            {copiedPath === "linux" ? (
+                              <Check className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* macOS Command */}
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">macOS:</div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 bg-signal-bg rounded-lg p-3 font-mono text-xs text-muted-foreground border border-signal-border/40 overflow-x-auto">
+                            bash &lt;(curl -sL {typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/scripts/extract-signal-key-macos.sh) | pbcopy
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(`bash <(curl -sL ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/scripts/extract-signal-key-macos.sh) | pbcopy`, "macos")}
+                            className="h-auto px-3 hover:bg-signal-blue/10"
+                          >
+                            {copiedPath === "macos" ? (
+                              <Check className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ✓ This command extracts your key and copies it to clipboard automatically
+                      </p>
                     </div>
 
-                    {/* Step 2 */}
+                    {/* Step 2: Paste */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-signal-blue text-white text-xs">
                           2
                         </div>
-                        Run in terminal on this computer
-                      </div>
-                      <div className="bg-signal-bg rounded-lg p-3 font-mono text-sm text-muted-foreground border border-signal-border/40">
-                        $ python3 extract-signal-key.py
-                      </div>
-                    </div>
-
-                    {/* Step 3 */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-signal-blue text-white text-xs">
-                          3
-                        </div>
-                        Paste the output here
+                        Paste the key here (Ctrl+V / Cmd+V)
                       </div>
                       <Textarea
                         value={extractedKey}
@@ -434,6 +453,17 @@ if __name__ == '__main__':
           </div>
         </CardContent>
       </Card>
+
+      {/* Key Extraction Helper Dialog */}
+      <KeyExtractionHelper
+        open={showKeyHelper}
+        onOpenChange={setShowKeyHelper}
+        encryptedKey={encryptedKeyValue}
+        onKeyExtracted={(plainKey) => {
+          setExtractedKey(plainKey)
+          setShowKeyHelper(false)
+        }}
+      />
     </div>
   )
 }
