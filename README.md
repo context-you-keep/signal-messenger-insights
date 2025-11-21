@@ -7,14 +7,6 @@ A secure, local-only tool for exploring your Signal Desktop message history. Dec
 
 ---
 
-## Screenshots
-
-![Landing page](docs/images/landing.png)
-![Chat view](docs/images/chat.png)
-![Stats view](docs/images/stats.png)
-
----
-
 ## Platform Support
 
 | Platform | Status |
@@ -45,6 +37,14 @@ A secure, local-only tool for exploring your Signal Desktop message history. Dec
 
 ---
 
+## Screenshots
+
+![Landing page](docs/images/landing.png)
+![Chat view](docs/images/chat.png)
+![Stats view](docs/images/stats.png)
+
+---
+
 ## Quick Start (Upload Mode)
 
 Start the containers:
@@ -59,11 +59,6 @@ Open `http://localhost:3000` and upload:
 - `db.sqlite` (from `sql/` directory in your Signal profile)
 
 The app decrypts your database in-memory and displays your conversations. No data writes to disk unless you export intentionally.
-
-### Services
-
-- **Frontend** (Next.js) — port 3000
-- **Backend** (FastAPI) — port 8000
 
 ---
 
