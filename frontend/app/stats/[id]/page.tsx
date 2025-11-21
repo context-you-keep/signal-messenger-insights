@@ -25,7 +25,7 @@ export default async function StatsPage({
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <Link
-              href="/"
+              href="/viewer"
               className="flex items-center gap-2 text-[var(--signal-text-tertiary)] hover:text-[var(--signal-blue)] transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />

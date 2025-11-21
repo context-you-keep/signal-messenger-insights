@@ -172,21 +172,16 @@ You control your data.
 
 ### Local Development (without Docker)
 
-**Backend:**
-```bash
-cd backend
-pip install -e .
-uvicorn app.main:app --reload --port 8000
-```
-
 **Frontend:**
 ```bash
 cd frontend
-npm install
+npm install --legacy-peer-deps
 npm run dev
 ```
 
-Then open `http://localhost:3000`
+Then open `http://localhost:3001` (dev mode with hot reload)
+
+**Note:** Development runs on port **3001**, production (Docker) runs on port **3000**. This allows running both simultaneously if needed.
 
 ### Building with Docker
 

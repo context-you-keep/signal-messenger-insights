@@ -120,13 +120,37 @@ if __name__ == '__main__':
   }
 
   const handleLoadDatabase = async () => {
+    if (!configFile || !dbFile) return
+
     setIsLoading(true)
 
-    // Simulate loading process
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      // Create FormData to upload files
+      const formData = new FormData()
+      formData.append("config", configFile)
+      formData.append("database", dbFile)
 
-    // TODO: Process files and load data
-    router.push("/viewer")
+      // Call upload API
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed")
+      }
+
+      console.log(`Successfully loaded ${data.conversationCount} conversations`)
+
+      // Navigate to viewer
+      router.push("/viewer")
+    } catch (error) {
+      console.error("Failed to load database:", error)
+      alert(`Error: ${error instanceof Error ? error.message : "Upload failed"}`)
+      setIsLoading(false)
+    }
   }
 
   const canLoadDatabase = configFile && dbFile && (!isEncrypted || extractedKey.trim().length > 0)

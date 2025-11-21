@@ -60,17 +60,18 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
 
               <div className="flex-1 overflow-hidden text-left">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h3 className="truncate font-semibold text-[var(--signal-text-primary)]">{conversation.name}</h3>
+                  <h3 className="truncate text-sm font-semibold text-[var(--signal-text-primary)]">{conversation.name}</h3>
                   <span className="shrink-0 text-xs text-[var(--signal-text-tertiary)]">{conversation.timestamp}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm text-[var(--signal-text-secondary)]">{conversation.lastMessage}</p>
-                  {conversation.unread && conversation.unread > 0 && (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--signal-blue)] text-xs font-semibold text-white">
-                      {conversation.unread}
+                {/* @ts-ignore - messageCount exists in API response */}
+                {conversation.messageCount !== undefined && (
+                  <div className="mt-1">
+                    <span className="text-xs text-[var(--signal-text-tertiary)]">
+                      {/* @ts-ignore */}
+                      {conversation.messageCount.toLocaleString()} messages
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </button>
           ))}
