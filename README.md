@@ -19,23 +19,12 @@ without any data leaving your machine.
 
 ---
 
-## Roadmap
-
-- macOS testing and validation
-- Windows testing and validation
-- Updated conversation statistics
-
----
-
 ## Features
 
 - **Local-only decryption** : all processing happens on your machine
 - **Two data loading methods** : upload files via browser or mount Signal directory read-only
 - **Conversation browser** : view messages with timestamps and pagination
 - **Full-text search** : find messages by keyword
-- **Attachment viewer** : view and export media files
-- **Export options** : Markdown, HTML, JSON
-- **LLM integration** : summaries, topic extraction
 
 ---
 
@@ -202,6 +191,22 @@ This tool is designed for your own Signal Desktop data. Do not use it on systems
 ## Contributing
 
 Bug reports, feature requests, and PRs welcome.
+
+---
+
+## Roadmap
+
+- [x] Local-only decryption
+- [x] Conversation browser with pagination
+- [x] Full-text search
+- [ ] macOS testing and validation
+- [ ] Windows testing and validation
+- [ ] Attachment viewer (view and export media)
+- [ ] Export options (Markdown, HTML, JSON)
+- [ ] LLM integration (summaries, topic extraction)
+- [ ] Updated conversation statistics
+
+See the [open issues](https://github.com/context-you-keep/signal-messenger-insights/issues) for proposed features and known issues.
 
 ---
 
