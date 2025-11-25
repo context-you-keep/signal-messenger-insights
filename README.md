@@ -3,7 +3,9 @@
 ![Beta](https://img.shields.io/badge/status-beta-yellow)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-A secure, local-only tool for exploring your Signal Desktop message history. Decrypt, browse, search, and export conversations—without any data leaving your machine.
+A secure, local-only tool for exploring your Signal Desktop message history.
+- Decrypt, browse, search, and export conversations
+without any data leaving your machine.
 
 ---
 
@@ -11,9 +13,9 @@ A secure, local-only tool for exploring your Signal Desktop message history. Dec
 
 | Platform | Status |
 |----------|--------|
-| Linux | Tested |
-| macOS | Untested |
-| Windows | Untested |
+| Linux | Functional |
+| macOS | In Development |
+| Windows | Planned |
 
 ---
 
@@ -27,13 +29,13 @@ A secure, local-only tool for exploring your Signal Desktop message history. Dec
 
 ## Features
 
-- **Local-only decryption** — all processing happens on your machine
-- **Two data loading methods** — upload files via browser or mount Signal directory read-only
-- **Conversation browser** — view messages with timestamps and pagination
-- **Full-text search** — find messages by keyword
-- **Attachment viewer** — view and export media files
-- **Export options** — Markdown, HTML, JSON (coming soon)
-- **LLM integration** — summaries, topic extraction (planned)
+- **Local-only decryption** : all processing happens on your machine
+- **Two data loading methods** : upload files via browser or mount Signal directory read-only
+- **Conversation browser** : view messages with timestamps and pagination
+- **Full-text search** : find messages by keyword
+- **Attachment viewer** : view and export media files
+- **Export options** : Markdown, HTML, JSON
+- **LLM integration** : summaries, topic extraction
 
 ---
 
@@ -158,8 +160,7 @@ The app auto-detects `/signal/config.json` and `/signal/sql/db.sqlite`.
 This project prioritizes your privacy:
 
 - Runs entirely on localhost
-- Requires no internet access
-- Contains no telemetry or analytics
+- Has no internet callbacks
 - Keeps decrypted data in-memory
 - Mounts directories read-only
 
